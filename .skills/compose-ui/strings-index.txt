@@ -238,6 +238,25 @@ clear_position_track_title
 clear_selection
 clear_time_zone
 client_notification
+### CLONE ###
+clone_actions
+clone_add
+clone_add_to_home
+clone_change_color
+clone_choose_logo
+clone_color_option
+clone_default_name
+clone_delete_message
+clone_delete_title
+clone_manager_explainer
+clone_manager_summary
+clone_manager_title
+clone_open
+clone_rename
+clone_reset_logo
+clone_running
+clone_slot_label
+clone_slots_full
 close
 close_selection
 co2

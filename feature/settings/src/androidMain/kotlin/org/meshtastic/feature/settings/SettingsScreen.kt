@@ -44,6 +44,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.qualifier.named
+import org.meshtastic.core.common.AppInstance
 import org.meshtastic.core.common.di.GOOGLE_SERVICES_AVAILABLE
 import org.meshtastic.core.common.util.UnitsOverride
 import org.meshtastic.core.common.util.nowMillis
@@ -57,6 +58,8 @@ import org.meshtastic.core.resources.app_functions_settings
 import org.meshtastic.core.resources.app_functions_settings_summary
 import org.meshtastic.core.resources.app_settings
 import org.meshtastic.core.resources.bottom_nav_settings
+import org.meshtastic.core.resources.clone_manager_summary
+import org.meshtastic.core.resources.clone_manager_title
 import org.meshtastic.core.resources.device_links
 import org.meshtastic.core.resources.export_configuration
 import org.meshtastic.core.resources.filter_settings
@@ -72,6 +75,7 @@ import org.meshtastic.core.ui.icon.FilterList
 import org.meshtastic.core.ui.icon.HelpOutline
 import org.meshtastic.core.ui.icon.List
 import org.meshtastic.core.ui.icon.MeshtasticIcons
+import org.meshtastic.core.ui.icon.PhoneAndroid
 import org.meshtastic.core.ui.icon.SettingsRemote
 import org.meshtastic.core.ui.icon.Wifi
 import org.meshtastic.core.ui.util.isBluetoothSupported
@@ -331,6 +335,16 @@ fun SettingsScreen(
                             leadingIcon = MeshtasticIcons.SettingsRemote,
                         ) {
                             onNavigate(SettingsRoute.AppFunctionsSettings)
+                        }
+                    }
+                    // A clone can't manage clones; only the main app (slot 0) offers this.
+                    if (!AppInstance.isClone) {
+                        ListItem(
+                            text = stringResource(Res.string.clone_manager_title),
+                            supportingText = stringResource(Res.string.clone_manager_summary),
+                            leadingIcon = MeshtasticIcons.PhoneAndroid,
+                        ) {
+                            onNavigate(SettingsRoute.CloneManager)
                         }
                     }
                 }

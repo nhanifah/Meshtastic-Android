@@ -22,7 +22,13 @@ import android.app.Notification
 import android.app.Service
 import androidx.core.app.ServiceCompat
 import co.touchlab.kermit.Logger
+import org.meshtastic.core.common.AppInstance
 import org.meshtastic.core.repository.SERVICE_NOTIFY_ID
+
+/** The foreground notification id; each clone gets its own so the shared package never has two with one id. */
+internal fun serviceNotifyId(): Int = SERVICE_NOTIFY_ID + AppInstance.slot * CLONE_NOTIFY_ID_STRIDE
+
+private const val CLONE_NOTIFY_ID_STRIDE = 1000
 
 /**
  * Promotes [this] service to the foreground, returning whether it actually got there.
@@ -36,7 +42,7 @@ import org.meshtastic.core.repository.SERVICE_NOTIFY_ID
  * 34+ invalid/missing-type exceptions, so catching it covers all of them without an API-gated class reference.
  */
 internal fun Service.startForegroundSafely(notification: Notification, foregroundServiceType: Int): Boolean = try {
-    ServiceCompat.startForeground(this, SERVICE_NOTIFY_ID, notification, foregroundServiceType)
+    ServiceCompat.startForeground(this, serviceNotifyId(), notification, foregroundServiceType)
     true
 } catch (ex: IllegalStateException) {
     Logger.e(ex) { "Foreground start not allowed by the OS" }
@@ -74,7 +80,7 @@ private fun Service.retryWithoutRefusedType(
 }
 
 private fun Service.retryForegroundAsConnectedDevice(notification: Notification, fallbackType: Int): Boolean = try {
-    ServiceCompat.startForeground(this, SERVICE_NOTIFY_ID, notification, fallbackType)
+    ServiceCompat.startForeground(this, serviceNotifyId(), notification, fallbackType)
     true
 } catch (retryEx: Exception) {
     Logger.e(retryEx) { "Failed to start foreground service even after retry" }

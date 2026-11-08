@@ -202,6 +202,9 @@ sealed interface SettingsRoute : Route {
 
     @Serializable data object AppFunctionsSettings : SettingsRoute
 
+    /** Android only: lists, adds and deletes app clones. Reachable from the main app, never from a clone. */
+    @Serializable data object CloneManager : SettingsRoute
+
     // endregion
 
     // region help & documentation routes

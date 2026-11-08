@@ -16,6 +16,14 @@
  */
 
 import com.android.build.api.dsl.ApplicationExtension
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.TaskAction
 import org.meshtastic.buildlogic.DEFAULT_LOCALE_TAG
 import org.meshtastic.buildlogic.GenerateLocaleConfigTask
 import org.meshtastic.buildlogic.LocaleQualifiersValueSource
@@ -39,6 +47,63 @@ plugins {
     // `implementation`), so a versioned alias(libs.plugins.mokkery) request is rejected by Gradle.
     id("dev.mokkery")
     alias(libs.plugins.devtools.ksp)
+}
+
+val cloneSlots = configProperties.getProperty("CLONE_SLOTS").toInt()
+
+/**
+ * Writes one activity, one service and their two trivial Kotlin subclasses per clone slot, so the manifest and the
+ * classes cannot drift from `CLONE_SLOTS`. Everything about a clone's behaviour keys off `AppInstance.slot`.
+ */
+abstract class GenerateCloneComponentsTask : DefaultTask() {
+    @get:Input abstract val slots: Property<Int>
+
+    @get:OutputFile abstract val manifestFile: RegularFileProperty
+
+    @get:OutputDirectory abstract val kotlinDir: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val count = slots.get()
+        val components =
+            (1..count).joinToString("\n") { n ->
+                """
+                |        <activity
+                |            android:name="org.meshtastic.app.clone.CloneActivity$n"
+                |            android:process=":clone$n"
+                |            android:taskAffinity="${'$'}{applicationId}.clone$n"
+                |            android:launchMode="singleTask"
+                |            android:windowSoftInputMode="adjustResize"
+                |            android:exported="false" />
+                |        <service
+                |            android:name="org.meshtastic.app.clone.CloneMeshService$n"
+                |            android:process=":clone$n"
+                |            android:enabled="true"
+                |            android:foregroundServiceType="connectedDevice|location"
+                |            android:exported="false" />
+                """
+                    .trimMargin()
+            }
+        manifestFile.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(
+                "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+                    "    <application>\n$components\n    </application>\n</manifest>\n",
+            )
+        }
+        val dir = kotlinDir.get().asFile.resolve("org/meshtastic/app/clone").apply { mkdirs() }
+        val classes =
+            (1..count).joinToString("\n") { n ->
+                "class CloneActivity$n : MainActivity()\n\nclass CloneMeshService$n : MeshService()\n"
+            }
+        dir.resolve("CloneComponents.kt")
+            .writeText(
+                "// Generated from CLONE_SLOTS by GenerateCloneComponentsTask; do not edit.\n" +
+                    "package org.meshtastic.app.clone\n\n" +
+                    "import org.meshtastic.app.MainActivity\n" +
+                    "import org.meshtastic.core.service.MeshService\n\n$classes",
+            )
+    }
 }
 
 // Isolated-Projects-safe root access — never reach through `rootProject`.
@@ -76,6 +141,7 @@ configure<ApplicationExtension> {
 
         versionCode = versionInfo.versionCode
         versionName = versionInfo.versionName
+        buildConfigField("int", "CLONE_SLOTS", cloneSlots.toString())
         buildConfigField("String", "MIN_FW_VERSION", "\"${versionInfo.minFwVersion}\"")
         buildConfigField("String", "ABS_MIN_FW_VERSION", "\"${versionInfo.absMinFwVersion}\"")
         // Filter library resources to the translated languages, because some libs ship bogus languages that Google
@@ -190,6 +256,23 @@ androidComponents {
                 resourcesDir.set(appResourcesDir)
             }
         variant.sources.res?.addGeneratedSourceDirectory(generateLocaleConfig, GenerateLocaleConfigTask::outputDir)
+
+        val generateCloneComponents =
+            tasks.register<GenerateCloneComponentsTask>(
+                "generate${variant.name.replaceFirstChar { it.uppercase() }}CloneComponents",
+            ) {
+                group = "build"
+                description = "Generate the per-slot clone activities, services and manifest entries."
+                slots.set(cloneSlots)
+            }
+        variant.sources.manifests.addGeneratedManifestFile(
+            generateCloneComponents,
+            GenerateCloneComponentsTask::manifestFile,
+        )
+        variant.sources.kotlin?.addGeneratedSourceDirectory(
+            generateCloneComponents,
+            GenerateCloneComponentsTask::kotlinDir,
+        )
     }
 }
 

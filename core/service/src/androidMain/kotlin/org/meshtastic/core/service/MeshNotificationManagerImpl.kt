@@ -52,6 +52,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.StringResource
 import org.koin.core.annotation.Single
+import org.meshtastic.core.common.AppInstance
 import org.meshtastic.core.common.di.ServiceScope
 import org.meshtastic.core.common.state.RadioOperation
 import org.meshtastic.core.common.state.RadioOperationLock
@@ -82,7 +83,6 @@ import org.meshtastic.core.repository.MeshPrefs
 import org.meshtastic.core.repository.NodeRepository
 import org.meshtastic.core.repository.PacketRepository
 import org.meshtastic.core.repository.RadioConfigRepository
-import org.meshtastic.core.repository.SERVICE_NOTIFY_ID
 import org.meshtastic.core.repository.notificationId
 import org.meshtastic.core.resources.R.drawable
 import org.meshtastic.core.resources.Res
@@ -170,10 +170,27 @@ class MeshNotificationManagerImpl(
     companion object {
         const val MAX_BATTERY_LEVEL = 100
 
+        /**
+         * Clones share this app's package, so their notifications share one (tag, id) space and one group-key space
+         * with the main app's. Each clone prefixes both; slot 0 keeps the bare names it always had.
+         */
+        private fun tag(base: String): String = if (AppInstance.isClone) "clone${AppInstance.slot}.$base" else base
+
+        /** A clone's own launch activity (`CloneActivityN`), or the main one. */
+        private val activityClass: String
+            get() =
+                if (AppInstance.isClone) {
+                    "org.meshtastic.app.clone.CloneActivity${AppInstance.slot}"
+                } else {
+                    MAIN_ACTIVITY_CLASS
+                }
+
         private const val MAX_HISTORY_MESSAGES = 10
         private const val MIN_CONTEXT_MESSAGES = 3
         private const val SNIPPET_LENGTH = 30
-        private const val GROUP_KEY_MESSAGES = "org.meshtastic.app.GROUP_MESSAGES"
+        private val GROUP_KEY_MESSAGES: String
+            get() = tag("org.meshtastic.app.GROUP_MESSAGES")
+
         private const val SUMMARY_ID = 1
         private const val STATS_UPDATE_MINUTES = 15
         private val STATS_UPDATE_INTERVAL = STATS_UPDATE_MINUTES.minutes
@@ -183,7 +200,8 @@ class MeshNotificationManagerImpl(
         // integer ID space, so unrelated notifications can clobber each other (e.g. a node whose num == 101 would
         // overwrite the foreground-service notification, or num == 1 the group summary). notify()/cancel() must use
         // the same (tag, id) pair.
-        private const val TAG_MESSAGE = "message"
+        private val TAG_MESSAGE: String
+            get() = tag("message")
 
         /**
          * Fully-qualified name of the bubble host, as a string to avoid a module dependency back onto `:androidApp`.
@@ -192,16 +210,36 @@ class MeshNotificationManagerImpl(
 
         /** Roughly a phone's lower half — enough conversation to reply in without covering what is underneath. */
         private const val BUBBLE_DESIRED_HEIGHT_DP = 600
-        private const val TAG_MESSAGE_SUMMARY = "message_summary"
-        private const val TAG_WAYPOINT = "waypoint"
-        private const val TAG_REACTION = "reaction"
-        private const val TAG_ALERT = "alert"
-        private const val TAG_NEW_NODE = "new_node"
-        private const val TAG_LOW_BATTERY = "low_battery"
-        private const val TAG_CLIENT = "client"
-        private const val TAG_MESH_BEACON = "mesh_beacon"
-        private const val TAG_FIRMWARE_UPDATE = "firmware_update"
-        private const val TAG_RECONNECT_BLOCKED = "reconnect_blocked"
+        private val TAG_MESSAGE_SUMMARY: String
+            get() = tag("message_summary")
+
+        private val TAG_WAYPOINT: String
+            get() = tag("waypoint")
+
+        private val TAG_REACTION: String
+            get() = tag("reaction")
+
+        private val TAG_ALERT: String
+            get() = tag("alert")
+
+        private val TAG_NEW_NODE: String
+            get() = tag("new_node")
+
+        private val TAG_LOW_BATTERY: String
+            get() = tag("low_battery")
+
+        private val TAG_CLIENT: String
+            get() = tag("client")
+
+        private val TAG_MESH_BEACON: String
+            get() = tag("mesh_beacon")
+
+        private val TAG_FIRMWARE_UPDATE: String
+            get() = tag("firmware_update")
+
+        private val TAG_RECONNECT_BLOCKED: String
+            get() = tag("reconnect_blocked")
+
         private const val RECONNECT_BLOCKED_ID = 1
         private val CHANNEL_LABEL_TIMEOUT = 2.seconds
         private const val MAIN_ACTIVITY_CLASS = "org.meshtastic.app.MainActivity"
@@ -261,7 +299,16 @@ class MeshNotificationManagerImpl(
 
     override fun clearNotifications() = synchronized(lowBatteryLock) {
         lowBatteryEpisodes.clear()
-        notificationManager.cancelAll()
+        if (AppInstance.isClone) {
+            // cancelAll() would also dismiss the main app's and the other clones' notifications.
+            val prefix = "clone${AppInstance.slot}."
+            notificationManager.activeNotifications
+                .filter { it.tag?.startsWith(prefix) == true }
+                .forEach { notificationManager.cancel(it.tag, it.id) }
+            notificationManager.cancel(serviceNotifyId())
+        } else {
+            notificationManager.cancelAll()
+        }
     }
 
     /**
@@ -468,7 +515,7 @@ class MeshNotificationManagerImpl(
             cachedMessage = message
             cachedServiceNotification = notification
         }
-        notificationManager.notify(SERVICE_NOTIFY_ID, notification)
+        notificationManager.notify(serviceNotifyId(), notification)
     }
 
     private fun captureServiceNotificationSnapshot(
@@ -699,7 +746,7 @@ class MeshNotificationManagerImpl(
                 if (senderTitle != null && messageText != null) "$senderTitle: $messageText" else null
             }
         }
-        val appName = getStringSuspend(Res.string.meshtastic_app_name)
+        val appName = AppInstance.label ?: getStringSuspend(Res.string.meshtastic_app_name)
         val inboxStyle = NotificationCompat.InboxStyle().setBigContentTitle(appName)
         lines.forEach { inboxStyle.addLine(it) }
 
@@ -1031,7 +1078,8 @@ class MeshNotificationManagerImpl(
                 .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
                 .setShowWhen(false)
                 .setRequestPromotedOngoing(true)
-                .addAction(createStopLiveUpdateAction())
+        // LiveUpdateStopReceiver lives in the main process and would stop the main app's Live Update.
+        if (!AppInstance.isClone) builder.addAction(createStopLiveUpdateAction())
         subText?.let { builder.setSubText(it) }
         chip?.let { builder.setShortCriticalText(it) }
         return builder.build()
@@ -1182,8 +1230,9 @@ class MeshNotificationManagerImpl(
         builder
             .setCategory(Notification.CATEGORY_MESSAGE)
             // Link to the conversation shortcut so this is treated as a Conversation notification (Android 11+).
-            .setShortcutId(contactKey)
-            .setLocusId(LocusIdCompat(contactKey))
+            // (A clone publishes no shortcuts, and its ids would collide with the main app's.)
+            .setShortcutId(contactKey.takeUnless { AppInstance.isClone })
+            .setLocusId(LocusIdCompat(contactKey).takeUnless { AppInstance.isClone })
             // MessagingStyle carries per-message Persons, but conversation and bubble eligibility is judged on the
             // notification's own person list, so the counterpart is added here too.
             .addPerson(
@@ -1213,9 +1262,15 @@ class MeshNotificationManagerImpl(
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setWhen(lastMessage.receivedTime)
             .setShowWhen(true)
-            .addAction(createReplyAction(contactKey))
-            .addAction(createMarkAsReadAction(contactKey))
-            .addAction(createReactionAction(contactKey = contactKey, packetId = lastMessage.packetId))
+
+        // ConversationActionService runs in the main process against the main database, so a clone's notification
+        // offers none of its actions; tapping it opens the clone instead.
+        if (!AppInstance.isClone) {
+            builder
+                .addAction(createReplyAction(contactKey))
+                .addAction(createMarkAsReadAction(contactKey))
+                .addAction(createReactionAction(contactKey = contactKey, packetId = lastMessage.packetId))
+        }
 
         return builder.build()
     }
@@ -1295,7 +1350,7 @@ class MeshNotificationManagerImpl(
     // region Helper/Builder Methods
     private val openAppIntent: PendingIntent by lazy {
         val intent =
-            Intent(context, Class.forName(MAIN_ACTIVITY_CLASS)).apply {
+            Intent(context, Class.forName(activityClass)).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
         PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -1307,7 +1362,7 @@ class MeshNotificationManagerImpl(
      */
     private fun createDeepLinkIntent(path: String, requestCode: Int): PendingIntent {
         val deepLinkIntent =
-            Intent(Intent.ACTION_VIEW, "$DEEP_LINK_BASE_URI/$path".toUri(), context, Class.forName(MAIN_ACTIVITY_CLASS))
+            Intent(Intent.ACTION_VIEW, "$DEEP_LINK_BASE_URI/$path".toUri(), context, Class.forName(activityClass))
                 .apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP }
         return TaskStackBuilder.create(context).run {
             addNextIntentWithParentStack(deepLinkIntent)
@@ -1330,7 +1385,9 @@ class MeshNotificationManagerImpl(
      * The icon is the same per-node avatar the conversation notification already builds, so a bubble is recognisable as
      * that conversation rather than as the app.
      */
-    private fun createBubbleMetadata(contactKey: String, icon: IconCompat): NotificationCompat.BubbleMetadata {
+    private fun createBubbleMetadata(contactKey: String, icon: IconCompat): NotificationCompat.BubbleMetadata? {
+        // BubbleActivity is not process-scoped, so a clone would bubble the main app's conversation; stay off.
+        if (AppInstance.isClone) return null
         val deepLinkUri = "$DEEP_LINK_BASE_URI/messages/$contactKey".toUri()
         // Two halves of one rule. The intent carries no task flags, because the platform is the thing that applies
         // FLAG_ACTIVITY_NEW_DOCUMENT and FLAG_ACTIVITY_MULTIPLE_TASK for a bubble — setting them here instead
@@ -1441,6 +1498,7 @@ class MeshNotificationManagerImpl(
             .setColor(NOTIFICATION_COLOR)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(contentIntent ?: openAppIntent)
+            .apply { AppInstance.label?.let { setSubText(it) } }
     }
 
     // endregion

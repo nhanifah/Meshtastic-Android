@@ -27,11 +27,18 @@ import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
+import dev.mokkery.MockMode
+import dev.mokkery.mock
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.meshtastic.core.common.di.asServiceScope
+import org.meshtastic.core.repository.PacketRepository
 import org.meshtastic.core.repository.PersistedPacketId
+import org.meshtastic.core.repository.RadioController
 import org.meshtastic.core.service.worker.SendMessageWorker
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -54,7 +61,13 @@ class AndroidMeshWorkerManagerTest {
         WorkManagerTestInitHelper.initializeTestWorkManager(context, configuration)
         val workManager = WorkManager.getInstance(context)
         val persistedId = PersistedPacketId(myNodeNum = 42, uuid = 99L)
-        val manager = AndroidMeshWorkerManager(workManager)
+        val manager =
+            AndroidMeshWorkerManager(
+                lazyOf(workManager),
+                mock<PacketRepository>(MockMode.autofill),
+                mock<RadioController>(MockMode.autofill),
+                CoroutineScope(Job()).asServiceScope(),
+            )
 
         try {
             manager.enqueueSendMessage(persistedId)

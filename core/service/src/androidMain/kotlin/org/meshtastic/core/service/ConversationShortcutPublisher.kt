@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.Single
+import org.meshtastic.core.common.AppInstance
 import org.meshtastic.core.di.CoroutineDispatchers
 import org.meshtastic.core.model.Channel
 import org.meshtastic.core.model.DataPacket
@@ -82,6 +83,8 @@ class ConversationShortcutPublisher(
     private val pendingOnDemandIds = ConcurrentHashMap.newKeySet<String>()
 
     fun startObserving(scope: CoroutineScope) {
+        // Shortcut ids are the raw contact keys, so a clone's would overwrite the main app's.
+        if (AppInstance.isClone) return
         observeJob?.cancel()
         observeJob =
             // The caller's scope may be Main-bound (MeshService); shortcut publishing does ShortcutManager IPC and
@@ -255,6 +258,7 @@ class ConversationShortcutPublisher(
      * emission).
      */
     suspend fun ensureConversationShortcut(contactKey: String, displayName: String) {
+        if (AppInstance.isClone) return
         // Protect this conversation from the observer's pruning until a contacts snapshot includes it.
         pendingOnDemandIds += contactKey
         val alreadyPublished = ShortcutManagerCompat.getDynamicShortcuts(context).any { it.id == contactKey }

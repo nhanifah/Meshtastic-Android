@@ -50,6 +50,7 @@ import okio.Path.Companion.toOkioPath
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 import org.meshtastic.core.common.BuildConfigProvider
+import org.meshtastic.core.common.instanceStorage
 import org.meshtastic.core.network.HttpClientDefaults
 import org.meshtastic.core.network.KermitHttpLogger
 import org.meshtastic.core.network.configureDefaultRetry
@@ -99,7 +100,7 @@ class NetworkModule {
         }
         .diskCache {
             DiskCache.Builder()
-                .directory(application.cacheDir.resolve("image_cache").toOkioPath())
+                .directory(application.instanceStorage().cacheDir.resolve("image_cache").toOkioPath())
                 .maxSizePercent(percent = DISK_CACHE_PERCENT)
                 .build()
         }
@@ -124,7 +125,10 @@ class NetworkModule {
         engine {
             config {
                 cache(
-                    Cache(directory = application.cacheDir.resolve("http_cache"), maxSize = HTTP_CACHE_SIZE_BYTES),
+                    Cache(
+                        directory = application.instanceStorage().cacheDir.resolve("http_cache"),
+                        maxSize = HTTP_CACHE_SIZE_BYTES,
+                    ),
                 )
                 fastFallback(true)
                 connectionPool(

@@ -265,6 +265,25 @@
     <string name="clear_selection">Clear selection</string>
     <string name="clear_time_zone">Clear time zone</string>
     <string name="client_notification">Client Notification</string>
+    <!-- CLONE -->
+    <string name="clone_actions">Clone actions</string>
+    <string name="clone_add">Add clone</string>
+    <string name="clone_add_to_home">Add to home screen</string>
+    <string name="clone_change_color">Change color</string>
+    <string name="clone_choose_logo">Choose custom logo</string>
+    <string name="clone_color_option">Color %1$d</string>
+    <string name="clone_default_name">Meshtastic %1$d</string>
+    <string name="clone_delete_message">This erases the clone's messages, nodes and settings. It can't be undone.</string>
+    <string name="clone_delete_title">Delete %1$s?</string>
+    <string name="clone_manager_explainer">Each clone is a separate copy of Meshtastic. It connects to its own radio and keeps its own messages, nodes and settings, so one phone can talk to several radios at once.</string>
+    <string name="clone_manager_summary">Run several radios side by side</string>
+    <string name="clone_manager_title">App clones</string>
+    <string name="clone_open">Open</string>
+    <string name="clone_rename">Rename</string>
+    <string name="clone_reset_logo">Reset to default logo</string>
+    <string name="clone_running">Running</string>
+    <string name="clone_slot_label">Slot %1$d</string>
+    <string name="clone_slots_full">All %1$d clone slots are in use</string>
     <string name="close">Close</string>
     <string name="close_selection">Close selection</string>
     <string name="co2">CO₂</string>

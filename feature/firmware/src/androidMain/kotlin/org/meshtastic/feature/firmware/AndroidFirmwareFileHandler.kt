@@ -24,6 +24,7 @@ import com.eygraber.uri.toAndroidUri
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.withContext
 import org.koin.core.annotation.Single
+import org.meshtastic.core.common.instanceStorage
 import org.meshtastic.core.common.util.CommonUri
 import org.meshtastic.core.common.util.ioDispatcher
 import org.meshtastic.core.common.util.safeCatching
@@ -44,7 +45,7 @@ private const val PRIMARY_VOLUME_ID = "primary"
 @Single(binds = [FirmwareFileHandler::class])
 @Suppress("TooManyFunctions")
 class AndroidFirmwareFileHandler(private val context: Context, client: HttpClient) :
-    BaseFirmwareFileHandler(client, File(context.cacheDir, "firmware_update")) {
+    BaseFirmwareFileHandler(client, File(context.instanceStorage().cacheDir, "firmware_update")) {
 
     override fun openUri(uri: CommonUri): InputStream? = context.contentResolver.openInputStream(uri.toAndroidUri())
 

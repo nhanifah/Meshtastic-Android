@@ -27,17 +27,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import co.touchlab.kermit.Logger
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.meshtastic.app.BuildConfig
+import org.meshtastic.app.clone.ui.CloneManagerScreen
 import org.meshtastic.core.model.ConnectionState
 import org.meshtastic.core.model.DeviceAddress
 import org.meshtastic.core.model.service.LockdownState
 import org.meshtastic.core.model.util.TimeConstants
 import org.meshtastic.core.navigation.NodesRoute
+import org.meshtastic.core.navigation.SettingsRoute
 import org.meshtastic.core.navigation.TopLevelDestination
 import org.meshtastic.core.navigation.rememberMultiBackstack
 import org.meshtastic.core.repository.PlatformAnalytics
@@ -115,6 +118,9 @@ fun MainScreen() {
                     docsEntries(backStack)
                     firmwareGraph(backStack)
                     wifiProvisionGraph(backStack)
+                    entry<SettingsRoute.CloneManager> {
+                        CloneManagerScreen(onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() })
+                    }
                 },
                 modifier = Modifier.fillMaxSize().recalculateWindowInsets().safeDrawingPadding(),
                 analytics = koinInject<PlatformAnalytics>(),

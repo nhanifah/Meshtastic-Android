@@ -49,8 +49,11 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.workmanager.factory.KoinWorkerFactory
 import org.koin.androidx.workmanager.koin.workManagerFactory
 import org.koin.plugin.module.dsl.startKoin
+import org.meshtastic.app.clone.CloneRegistry
 import org.meshtastic.app.di.AndroidKoinApp
+import org.meshtastic.core.common.AppInstance
 import org.meshtastic.core.common.ContextServices
+import org.meshtastic.core.common.instanceStorage
 import org.meshtastic.core.common.log.RoomPoolTimeoutLog
 import org.meshtastic.core.database.DatabaseManager
 import org.meshtastic.core.repository.MeshPrefs
@@ -109,6 +112,10 @@ open class MeshUtilApplication :
         RoomPoolTimeoutLog.install()
         if (BuildConfig.DEBUG) enableDebugVmPolicy()
         ContextServices.app = this
+        AppInstance.init(this)
+        AppInstance.attachMainProcessProviders(this)
+        // Lower modules label a clone's notifications with this; a rename shows after the clone next restarts.
+        if (AppInstance.isClone) AppInstance.label = CloneRegistry.find(this, AppInstance.slot)?.name
         configureFlavorApplication(BuildConfig.APPLICATION_ID)
 
         isSupportedDevice = bundledSqliteLoads(::loadBundledSqlite)
@@ -119,7 +126,9 @@ open class MeshUtilApplication :
 
         startKoin<AndroidKoinApp> {
             androidContext(this@MeshUtilApplication)
-            workManagerFactory()
+            // WorkManager runs work in the main process only, against the main app's graph; a clone must not
+            // initialize it as if it owned it.
+            if (!AppInstance.isClone) workManagerFactory()
         }
 
         startBackgroundInit()
@@ -139,7 +148,7 @@ open class MeshUtilApplication :
 
         // Schedule periodic MeshLog cleanup. Off-main: WorkManager uses on-demand init here
         // (the startup provider is removed), so getInstance() opens WorkManager's Room DB.
-        applicationScope.launch { scheduleMeshLogCleanup() }
+        if (!AppInstance.isClone) applicationScope.launch { scheduleMeshLogCleanup() }
 
         // ApplicationExitInfo requires API 30+. A "MemoryLimiter:AnonSwap" reason means Android 17's per-app
         // memory ceiling zram-swapped then killed the previous process — see reportMemoryLimiterExitIfPresent.
@@ -148,7 +157,8 @@ open class MeshUtilApplication :
         }
 
         // Generate and publish widget preview for Android 15+ widget picker
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+        // Widgets show the main app's radio; a clone must not publish previews (or run Glance work) for them.
+        if (!AppInstance.isClone && Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             applicationScope.launch {
                 suspend fun pushPreview() {
                     try {
@@ -233,7 +243,7 @@ open class MeshUtilApplication :
         // watermark keeps a kill from being re-reported on every cold start. Scanning a few records
         // (newest first) instead of just index 0 matters: a crash during the restart that follows a
         // limiter kill slides the AnonSwap record down the list, and the newest entry alone would miss it.
-        val prefs = getSharedPreferences(MEMORY_LIMITER_PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = instanceStorage().getSharedPreferences(MEMORY_LIMITER_PREFS_NAME, Context.MODE_PRIVATE)
         val watermark = prefs.getLong(KEY_LAST_REPORTED_EXIT_TIMESTAMP, -1L)
         val kill =
             getSystemService(ActivityManager::class.java)
@@ -280,7 +290,12 @@ open class MeshUtilApplication :
      * [startKoin]. Constructed rather than resolved because nothing declares a [WorkerFactory] in the graph.
      */
     override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder().setWorkerFactory(KoinWorkerFactory()).build()
+        get() =
+            Configuration.Builder()
+                .setWorkerFactory(KoinWorkerFactory())
+                // Clone processes share this package's WorkManager database; only the main process may run work.
+                .setDefaultProcessName(packageName)
+                .build()
 }
 
 /** Logs hidden-API reflection, such as the GATT cache refresh, and implicit URI permission grants. */

@@ -28,6 +28,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
+import org.meshtastic.core.common.instanceStorage
 import org.meshtastic.core.di.CoroutineDispatchers
 
 /**
@@ -129,9 +130,13 @@ fun createPreferencesDataStore(
     dispatchers: CoroutineDispatchers,
     legacyName: String,
     fileName: String,
-): DataStore<Preferences> = PreferenceDataStoreFactory.create(
-    corruptionHandler = ReplaceFileCorruptionHandler(produceNewData = { emptyPreferences() }),
-    migrations = listOf(SharedPreferencesMigration(context, legacyName)),
-    scope = CoroutineScope(dispatchers.io + SupervisorJob()),
-    produceFile = { context.preferencesDataStoreFile(fileName) },
-)
+): DataStore<Preferences> {
+    // A clone keeps its own copy of every domain, so it never shares a file with the main app.
+    val storage = context.instanceStorage()
+    return PreferenceDataStoreFactory.create(
+        corruptionHandler = ReplaceFileCorruptionHandler(produceNewData = { emptyPreferences() }),
+        migrations = listOf(SharedPreferencesMigration(storage, legacyName)),
+        scope = CoroutineScope(dispatchers.io + SupervisorJob()),
+        produceFile = { storage.preferencesDataStoreFile(fileName) },
+    )
+}

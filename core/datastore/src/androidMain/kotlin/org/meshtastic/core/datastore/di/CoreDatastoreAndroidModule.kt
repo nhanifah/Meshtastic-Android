@@ -32,6 +32,7 @@ import okio.Path
 import okio.Path.Companion.toOkioPath
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
+import org.meshtastic.core.common.instanceStorage
 import org.meshtastic.core.datastore.serializer.LocalConfigSerializer
 import org.meshtastic.core.datastore.serializer.LocalStatsSerializer
 import org.meshtastic.core.datastore.serializer.ModuleConfigSerializer
@@ -49,10 +50,13 @@ class PreferencesDataStoreModule {
             corruptionHandler = ReplaceFileCorruptionHandler(produceNewData = { emptyPreferences() }),
             migrations =
             listOf(
-                SharedPreferencesMigration(context = context, sharedPreferencesName = USER_PREFERENCES_NAME),
+                SharedPreferencesMigration(
+                    context = context.instanceStorage(),
+                    sharedPreferencesName = USER_PREFERENCES_NAME,
+                ),
             ),
             scope = scope,
-            produceFile = { context.preferencesDataStoreFile(USER_PREFERENCES_NAME) },
+            produceFile = { context.instanceStorage().preferencesDataStoreFile(USER_PREFERENCES_NAME) },
         )
             .asCorePreferencesDataStore()
 }
@@ -62,7 +66,7 @@ class LocalConfigDataStoreModule {
     @Single
     fun provideLocalConfigDataStore(context: Context, scope: DataStoreScope): CoreLocalConfigDataStore = protoStore(
         serializer = LocalConfigSerializer,
-        producePath = { context.dataStoreFile("local_config.pb").toOkioPath() },
+        producePath = { context.instanceStorage().dataStoreFile("local_config.pb").toOkioPath() },
         produceNewData = { LocalConfig.Builder().build() },
         scope = scope,
     )
@@ -74,7 +78,7 @@ class ModuleConfigDataStoreModule {
     @Single
     fun provideModuleConfigDataStore(context: Context, scope: DataStoreScope): CoreModuleConfigDataStore = protoStore(
         serializer = ModuleConfigSerializer,
-        producePath = { context.dataStoreFile("module_config.pb").toOkioPath() },
+        producePath = { context.instanceStorage().dataStoreFile("module_config.pb").toOkioPath() },
         produceNewData = { LocalModuleConfig.Builder().build() },
         scope = scope,
     )
@@ -86,7 +90,7 @@ class LocalStatsDataStoreModule {
     @Single
     fun provideLocalStatsDataStore(context: Context, scope: DataStoreScope): CoreLocalStatsDataStore = protoStore(
         serializer = LocalStatsSerializer,
-        producePath = { context.dataStoreFile("local_stats.pb").toOkioPath() },
+        producePath = { context.instanceStorage().dataStoreFile("local_stats.pb").toOkioPath() },
         produceNewData = { LocalStats.Builder().build() },
         scope = scope,
     )

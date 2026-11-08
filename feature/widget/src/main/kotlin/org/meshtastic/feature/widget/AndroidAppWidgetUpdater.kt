@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.Single
+import org.meshtastic.core.common.AppInstance
 import org.meshtastic.core.repository.AppWidgetUpdater
 
 private const val WIDGET_UPDATE_DEBOUNCE_MS = 500L
@@ -87,6 +88,8 @@ class AndroidAppWidgetUpdater(
     }
 
     private suspend fun update(widget: GlanceAppWidget) {
+        // The widgets show the main app's radio; a clone re-rendering them would show its own data instead.
+        if (AppInstance.isClone) return
         @Suppress("TooGenericExceptionCaught")
         try {
             widget.updateAll(context)

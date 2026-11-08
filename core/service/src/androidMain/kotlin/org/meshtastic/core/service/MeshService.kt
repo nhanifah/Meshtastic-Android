@@ -19,6 +19,7 @@
 package org.meshtastic.core.service
 
 import android.app.Service
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.android.ext.android.inject
+import org.meshtastic.core.common.AppInstance
 import org.meshtastic.core.common.hasLocationPermission
 import org.meshtastic.core.common.state.RadioOperationLock
 import org.meshtastic.core.common.util.isValidDeviceAddress
@@ -51,7 +53,7 @@ import org.meshtastic.core.repository.RadioTransportFactory
  * connection state.
  */
 @Suppress("LargeClass")
-class MeshService : Service() {
+open class MeshService : Service() {
 
     private val radioInterfaceService: RadioInterfaceService by inject()
 
@@ -99,7 +101,17 @@ class MeshService : Service() {
     private val operationWakeLock by lazy { OperationWakeLock(this, serviceScope) }
 
     companion object {
-        fun createIntent(context: Context) = Intent(context, MeshService::class.java)
+        /** Where a clone's service lives: `org.meshtastic.app.clone.CloneMeshServiceN`, declared by `:androidApp`. */
+        private const val CLONE_SERVICE_PREFIX = "org.meshtastic.app.clone.CloneMeshService"
+
+        /** The service to start in this process: [MeshService] in the main app, the slot's own subclass in a clone. */
+        fun serviceComponent(context: Context): ComponentName = if (AppInstance.isClone) {
+            ComponentName(context.packageName, "$CLONE_SERVICE_PREFIX${AppInstance.slot}")
+        } else {
+            ComponentName(context, MeshService::class.java)
+        }
+
+        fun createIntent(context: Context) = Intent().setComponent(serviceComponent(context))
 
         val minDeviceVersion = DeviceVersion(DeviceVersion.MIN_FW_VERSION)
         val absoluteMinDeviceVersion = DeviceVersion(DeviceVersion.ABS_MIN_FW_VERSION)
@@ -130,7 +142,8 @@ class MeshService : Service() {
         // Keep conversation shortcuts published for the whole service lifetime (not only during an Android Auto
         // session) so message notifications can link to them and get Conversations-section treatment on phones.
         conversationShortcutPublisher.startObserving(serviceScope)
-        quickSettingsTileController.startObserving()
+        // The tile belongs to the main app's radio.
+        if (!AppInstance.isClone) quickSettingsTileController.startObserving()
 
         // Hold a wake lock for as long as — and no longer than — some radio operation is in flight.
         serviceScope.launch {

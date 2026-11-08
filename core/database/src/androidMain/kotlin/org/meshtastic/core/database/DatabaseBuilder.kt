@@ -28,7 +28,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
-import org.meshtastic.core.common.ContextServices
+import org.meshtastic.core.common.AppInstance
 import org.meshtastic.core.database.MeshtasticDatabase.Companion.configureCommon
 
 /**
@@ -36,7 +36,7 @@ import org.meshtastic.core.database.MeshtasticDatabase.Companion.configureCommon
  * single-connection pool to avoid the reader-pool permit wedge; see [MeshtasticDatabase.configureCommon].
  */
 actual fun getDatabaseBuilder(dbName: String): RoomDatabase.Builder<MeshtasticDatabase> {
-    val dbFile = ContextServices.app.getDatabasePath(dbName)
+    val dbFile = AppInstance.storage.getDatabasePath(dbName)
     return Room.databaseBuilder<MeshtasticDatabase>(
         name = dbFile.absolutePath,
         factory = { MeshtasticDatabaseConstructor.initialize() },
@@ -53,16 +53,16 @@ actual fun getInMemoryDatabaseBuilder(): RoomDatabase.Builder<MeshtasticDatabase
 
 /** Returns the Android directory where database files are stored. */
 actual fun getDatabaseDirectory(): Path {
-    val app = ContextServices.app
+    val app = AppInstance.storage
     return app.getDatabasePath("dummy.db").parentFile!!.absolutePath.toPath()
 }
 
 /** Returns the Android path of the main database file for [dbName]. */
-actual fun getDatabaseFile(dbName: String): Path = ContextServices.app.getDatabasePath(dbName).absolutePath.toPath()
+actual fun getDatabaseFile(dbName: String): Path = AppInstance.storage.getDatabasePath(dbName).absolutePath.toPath()
 
 /** Deletes the Android database using the platform-specific deleteDatabase helper. */
 actual fun deleteDatabase(dbName: String) {
-    ContextServices.app.deleteDatabase(dbName)
+    AppInstance.storage.deleteDatabase(dbName)
 }
 
 /** Returns the system FileSystem for Android. */
@@ -71,5 +71,5 @@ actual fun getFileSystem(): FileSystem = FileSystem.SYSTEM
 /** Creates an Android DataStore for database preferences. */
 actual fun createDatabaseDataStore(name: String): DataStore<Preferences> = PreferenceDataStoreFactory.create(
     corruptionHandler = ReplaceFileCorruptionHandler(produceNewData = { emptyPreferences() }),
-    produceFile = { ContextServices.app.preferencesDataStoreFile(name) },
+    produceFile = { AppInstance.storage.preferencesDataStoreFile(name) },
 )
