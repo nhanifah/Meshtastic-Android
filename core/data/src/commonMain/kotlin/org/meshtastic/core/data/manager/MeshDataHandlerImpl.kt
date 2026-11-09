@@ -28,6 +28,7 @@ import org.meshtastic.core.common.util.nowMillis
 import org.meshtastic.core.common.util.nowSeconds
 import org.meshtastic.core.model.Channel
 import org.meshtastic.core.model.DataPacket
+import org.meshtastic.core.model.DeliveryReceipt
 import org.meshtastic.core.model.MeshBeaconOffer
 import org.meshtastic.core.model.MessageStatus
 import org.meshtastic.core.model.Node
@@ -39,6 +40,7 @@ import org.meshtastic.core.model.geofence.activeWaypointPackets
 import org.meshtastic.core.model.isBroadcast
 import org.meshtastic.core.model.isFromLocal
 import org.meshtastic.core.model.isModifiableBy
+import org.meshtastic.core.model.plusBounded
 import org.meshtastic.core.model.source
 import org.meshtastic.core.model.textMentionsNode
 import org.meshtastic.core.model.util.MeshDataMapper
@@ -182,7 +184,7 @@ class MeshDataHandlerImpl(
             }
 
             PortNum.ROUTING_APP -> {
-                handleRouting(packet, dataPacket, session)
+                handleRouting(packet, dataPacket, myNodeNum, session)
             }
 
             PortNum.PAXCOUNTER_APP -> {
@@ -380,7 +382,12 @@ class MeshDataHandlerImpl(
         rememberDataPacket(dataPacket, myNodeNum, session = session)
     }
 
-    private fun handleRouting(packet: MeshPacket, dataPacket: DataPacket, session: RadioSessionContext) {
+    private fun handleRouting(
+        packet: MeshPacket,
+        dataPacket: DataPacket,
+        myNodeNum: Int,
+        session: RadioSessionContext,
+    ) {
         val payload = packet.decoded?.payload ?: return
         val r = Routing.ADAPTER.decodeOrNull(payload, Logger) ?: return
         if (r.error_reason == Routing.Error.DUTY_CYCLE_LIMIT) {
@@ -395,8 +402,24 @@ class MeshDataHandlerImpl(
             dataPacket.relayNode,
             session,
             ackProofStatus = packet.ack_proof_status.value,
+            receipt = packet.toDeliveryReceipt(myNodeNum),
         )
     }
+
+    /**
+     * The relayer and signal this ack carries. An implicit ack is built by our own radio from the rebroadcast it
+     * overheard, so its relay byte and RSSI/SNR describe that rebroadcast (firmware 2.8.0+); an explicit ack describes
+     * its own last hop. A relay byte equal to ours names no one: it is what a locally built ack carries without a relay
+     * source.
+     */
+    private fun MeshPacket.toDeliveryReceipt(myNodeNum: Int) = DeliveryReceipt(
+        relayNode = relay_node.takeIf { it != 0 && it != (myNodeNum and RELAY_BYTE_MASK) },
+        rssi = rx_rssi,
+        snr = snrOrNull(),
+        hopsAway = if (hop_start == 0 || hop_limit > hop_start) -1 else hop_start - hop_limit,
+        viaMqtt = via_mqtt == true,
+        receivedTime = nowMillis,
+    )
 
     @Suppress("CyclomaticComplexMethod", "LongMethod")
     private fun handleAckNak(
@@ -406,6 +429,7 @@ class MeshDataHandlerImpl(
         relayNode: Int?,
         session: RadioSessionContext,
         ackProofStatus: Int = MeshPacket.AckProofStatus.ACK_PROOF_ABSENT.value,
+        receipt: DeliveryReceipt? = null,
     ) {
         val fromId = nodeManager.toNodeID(fromNum)
         radioInterfaceService.launchSessionWork(scope, session) {
@@ -438,6 +462,12 @@ class MeshDataHandlerImpl(
                         status = m,
                         relays = if (isAck) p.relays + 1 else p.relays,
                         relayNode = relayNode,
+                        receipts =
+                        if (isAck && receipt != null) {
+                            p.receipts.plusBounded(receipt.copy(fromRecipient = fromId == p.to))
+                        } else {
+                            p.receipts
+                        },
                         // Several acks can close out one packet, and only the addressed node's carries a proof. An
                         // unproven later ack must not erase the verdict an earlier one established.
                         ackProofStatus = ackProofStatus.takeIf { it != absentAckProof } ?: p.ackProofStatus,
@@ -464,7 +494,14 @@ class MeshDataHandlerImpl(
                         ackProofStatus = ackProofStatus.takeIf { it != absentAckProof } ?: reaction.ackProofStatus,
                     )
                 if (isAck) {
-                    updated = updated.copy(relays = updated.relays + 1)
+                    updated =
+                        updated.copy(
+                            relays = updated.relays + 1,
+                            receipts =
+                            receipt?.let {
+                                updated.receipts.plusBounded(it.copy(fromRecipient = fromId == reaction.to))
+                            } ?: updated.receipts,
+                        )
                 }
                 packetRepository.value.updateReaction(updated)
             } else if (ackProofStatus == provenAckProof) {
@@ -711,5 +748,6 @@ class MeshDataHandlerImpl(
 
     companion object {
         private const val HOPS_AWAY_UNAVAILABLE = -1
+        private const val RELAY_BYTE_MASK = 0xFF
     }
 }

@@ -414,8 +414,21 @@
     </plurals>
     <string name="delete_messages_title">Delete Messages?</string>
     <string name="delete_selection">Delete selected</string>
+    <!-- DELIVERY -->
     <string name="delivery_confirmed">Delivery confirmed</string>
     <string name="delivery_confirmed_reboot_warning">Your device may disconnect and reboot while settings are applied.</string>
+    <string name="delivery_receipt_acked_by">Acknowledged by %1$s</string>
+    <plurals name="delivery_receipt_hops">
+        <item quantity="one">%1$d hop</item>
+        <item quantity="other">%1$d hops</item>
+    </plurals>
+    <string name="delivery_receipt_last_hop">Last hop: %1$s</string>
+    <string name="delivery_receipt_no_signal">No signal reading (needs firmware 2.8.0 or later)</string>
+    <string name="delivery_receipt_relay_suffix">Node ending in %1$s</string>
+    <string name="delivery_receipt_relayed_by">Relayed by %1$s</string>
+    <string name="delivery_receipt_relayed_by_unknown">Relayed by an unknown node</string>
+    <string name="delivery_receipt_uncertain">%1$s (uncertain)</string>
+    <string name="delivery_receipts_first_relay_note">Your radio reports only the first relay it hears. Signal is how well your radio heard that relay. Run a traceroute to see the full path.</string>
     <string name="demo_mode">Demo Mode</string>
     <string name="demo_mode_replay">Demo Mode (Replay)</string>
     <string name="desc_node_filter_clear">clear node filter</string>

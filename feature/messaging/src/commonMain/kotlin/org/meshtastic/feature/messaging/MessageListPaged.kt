@@ -64,6 +64,7 @@ import org.meshtastic.core.model.Message
 import org.meshtastic.core.model.Node
 import org.meshtastic.core.model.NodeAddress
 import org.meshtastic.core.model.Reaction
+import org.meshtastic.core.model.effectiveLongName
 import org.meshtastic.core.model.hasDisplayName
 import org.meshtastic.core.ui.component.ListScrollbar
 import org.meshtastic.feature.messaging.component.DateSeparator
@@ -97,6 +98,8 @@ internal data class MessageListHandlers(
     val onReply: (Message?) -> Unit,
     val onTranslate: (Message) -> Unit = {},
     val onToggleTranslation: (Message) -> Unit = {},
+    /** Opens the traceroute log for a node number, from a direct message's delivery dialog. */
+    val onTraceroute: (Int) -> Unit = {},
 )
 
 internal data class MessageListPagedState(
@@ -118,6 +121,61 @@ internal data class MessageListPagedState(
     /** False for an archived conversation: its channel is gone, so nothing can be sent or resent into it. */
     val canSend: Boolean = true,
 )
+
+/** Name lookups the delivery dialogs share: relay id bytes, node ids, and the conversation's addressed node. */
+private class DeliveryLookups(
+    val resolveRelay: (Int) -> ResolvedRelay,
+    val nodeName: (String?) -> String?,
+    /** The addressed node of a direct-message conversation: whose ack is named, and where a traceroute goes. */
+    val recipientNum: Int?,
+    val recipientName: String?,
+)
+
+@Composable
+private fun rememberDeliveryLookups(state: MessageListPagedState, nodeMap: Map<Int, Node>): DeliveryLookups {
+    val ourNodeNum = state.ourNode?.num
+    return remember(state.nodes, nodeMap, ourNodeNum, state.contactKey) {
+        val nameOf: (Int) -> String? = { num -> nodeMap[num]?.effectiveLongName?.takeIf(String::isNotBlank) }
+        val recipientNum = (ContactKey(state.contactKey).address as? NodeAddress.ByNum)?.num
+        DeliveryLookups(
+            resolveRelay = { relayByte -> resolveRelay(relayByte, state.nodes, ourNodeNum) },
+            nodeName = { id -> NodeAddress.idToNum(id)?.let(nameOf) },
+            recipientNum = recipientNum,
+            recipientName = recipientNum?.let(nameOf),
+        )
+    }
+}
+
+@Composable
+private fun DeliveryStatusDialog(
+    message: Message,
+    lookups: DeliveryLookups,
+    isDirectMessage: Boolean,
+    canSend: Boolean,
+    handlers: MessageListHandlers,
+    onDismiss: () -> Unit,
+) {
+    val tracerouteTarget = lookups.recipientNum?.takeIf { isDirectMessage && message.fromLocal }
+    MessageStatusDialog(
+        message = message,
+        isDirectMessage = isDirectMessage,
+        resolveRelay = lookups.resolveRelay,
+        recipientName = lookups.recipientName,
+        onTraceroute =
+        tracerouteTarget?.let { num ->
+            {
+                onDismiss()
+                handlers.onTraceroute(num)
+            }
+        },
+        resendOption = message.isStatusRetryable(isDirectMessage) && canSend,
+        onResend = {
+            handlers.onResendMessage(message)
+            onDismiss()
+        },
+        onDismiss = onDismiss,
+    )
+}
 
 private fun MutableState<Set<Long>>.toggle(uuid: Long) {
     value =
@@ -144,16 +202,16 @@ internal fun MessageListPaged(
     val isDirectMessageConversation =
         remember(state.contactKey) { ContactKey(state.contactKey).addressString != NodeAddress.ID_BROADCAST }
 
+    val lookups = rememberDeliveryLookups(state, nodeMap)
+
     var showStatusDialog by remember { mutableStateOf<Message?>(null) }
     showStatusDialog?.let { message ->
-        MessageStatusDialog(
+        DeliveryStatusDialog(
             message = message,
+            lookups = lookups,
             isDirectMessage = isDirectMessageConversation,
-            resendOption = message.isStatusRetryable(isDirectMessageConversation) && state.canSend,
-            onResend = {
-                handlers.onResendMessage(message)
-                showStatusDialog = null
-            },
+            canSend = state.canSend,
+            handlers = handlers,
             onDismiss = { showStatusDialog = null },
         )
     }
@@ -168,6 +226,8 @@ internal fun MessageListPaged(
             myId = state.ourNode?.user?.id,
             reactorNames = reactorNames,
             canReact = state.canReact,
+            resolveRelay = lookups.resolveRelay,
+            nodeName = lookups.nodeName,
             onDismiss = { showReactionDialog = null },
             onResend = { reaction ->
                 handlers.onSendReaction(reaction.emoji, reaction.replyId)

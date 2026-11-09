@@ -95,6 +95,7 @@ class BubbleActivity : AppCompatActivity() {
                         navigateToQuickChatOptions = { openInApp("messages/$contactKey") },
                         navigateToFilterSettings = { openInApp("messages/$contactKey") },
                         onNavigateBack = { finish() },
+                        navigateToTraceroute = { nodeNum -> openInApp("nodes/$nodeNum/traceroute") },
                     )
                 }
             }

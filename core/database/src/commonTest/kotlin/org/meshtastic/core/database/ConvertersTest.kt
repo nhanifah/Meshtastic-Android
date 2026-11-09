@@ -19,6 +19,7 @@ package org.meshtastic.core.database
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import org.meshtastic.core.model.DataPacket
+import org.meshtastic.core.model.DeliveryReceipt
 import org.meshtastic.core.model.MessageStatus
 import org.meshtastic.core.model.NodeAddress
 import org.meshtastic.proto.DeviceMetadata
@@ -58,6 +59,25 @@ class ConvertersTest {
         val decoded = converters.dataFromString(encoded)
 
         assertEquals(packet, decoded)
+    }
+
+    @Test
+    fun `data packet receipts round trip and are absent from older rows`() {
+        val receipt = DeliveryReceipt(relayNode = 0x7f, rssi = -92, snr = 6.5f, hopsAway = 2, fromRecipient = true)
+        val packet = DataPacket(to = "!12345678", bytes = null, dataType = 1, id = 42, receipts = listOf(receipt))
+
+        assertEquals(listOf(receipt), converters.dataFromString(converters.dataToString(packet)).receipts)
+
+        val olderRow = converters.dataToString(packet).replace(Regex(""","receipts":\[[^\]]*\]"""), "")
+        assertEquals(emptyList(), converters.dataFromString(olderRow).receipts)
+    }
+
+    @Test
+    fun `reaction receipts converter round trips and tolerates unreadable json`() {
+        val receipts = listOf(DeliveryReceipt(relayNode = 0x11, snr = 0f))
+
+        assertEquals(receipts, converters.receiptsFromString(converters.receiptsToString(receipts)))
+        assertEquals(emptyList(), converters.receiptsFromString("not json"))
     }
 
     @Test

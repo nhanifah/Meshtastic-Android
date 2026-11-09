@@ -636,6 +636,27 @@ class MeshtasticDatabaseMigrationTest {
     }
 
     /**
+     * 67→68 adds `reactions.receipts`, the per-ack delivery receipts as JSON. A stored reaction reads as having none,
+     * and the column is added in place rather than by rebuilding `reactions`.
+     */
+    @Test
+    fun reactionReceiptsColumnAddedAsEmptyList() = runTest {
+        helper.createDatabase(REACTION_RECEIPTS_FROM_VERSION).use { connection ->
+            connection.execSQL(
+                "INSERT INTO reactions (myNodeNum, reply_id, user_id, emoji, timestamp, packet_id, hopsAway, relays) " +
+                    "VALUES (7, 1001, '!0000abcd', '👍', 5000, 2002, 2, 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(REACTION_RECEIPTS_TO_VERSION, MANUAL_MIGRATIONS).use { connection ->
+            val row = "FROM reactions WHERE reply_id = 1001"
+            assertEquals(listOf("2002"), queryColumn(connection, "SELECT packet_id $row"))
+            assertEquals(listOf("1"), queryColumn(connection, "SELECT relays $row"))
+            assertEquals(listOf("[]"), queryColumn(connection, "SELECT receipts $row"))
+        }
+    }
+
+    /**
      * [MeshtasticDatabase.MIGRATION_63_64] rebuilds only `discovered_node`, to make `snr` nullable, and adds the
      * `log.received_date` index in place. Every discovered node survives with its values and its parent link, a stored
      * 0 dB stays 0 because it may be a real reading, and NULL becomes storable. The `log` table is never copied: its
@@ -773,6 +794,8 @@ class MeshtasticDatabaseMigrationTest {
         const val SCHEMA_64_TO_VERSION = 64
         const val REACTION_TRANSPORT_FROM_VERSION = 66
         const val REACTION_TRANSPORT_TO_VERSION = 67
+        const val REACTION_RECEIPTS_FROM_VERSION = 67
+        const val REACTION_RECEIPTS_TO_VERSION = 68
         const val QUERY_PLAN_DETAIL_COLUMN = 3
 
         /** Every hand-written migration, which a walk across 52→53 or 63→64 must be given. */

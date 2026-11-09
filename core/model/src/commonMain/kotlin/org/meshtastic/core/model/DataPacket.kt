@@ -70,6 +70,8 @@ data class DataPacket(
      * when the ack arrives, not when the packet is sent, so it stays absent for anything still enroute.
      */
     var ackProofStatus: Int = 0,
+    /** The acks that settled this outgoing packet, oldest first (see [DeliveryReceipt]). Empty for received packets. */
+    var receipts: List<DeliveryReceipt> = emptyList(),
 ) {
 
     /** If there was an error with this message, this string describes what was wrong. */

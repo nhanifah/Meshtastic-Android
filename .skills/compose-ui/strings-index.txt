@@ -381,8 +381,18 @@ delete_key_backup_pick
 delete_messages
 delete_messages_title
 delete_selection
+### DELIVERY ###
 delivery_confirmed
 delivery_confirmed_reboot_warning
+delivery_receipt_acked_by
+delivery_receipt_hops
+delivery_receipt_last_hop
+delivery_receipt_no_signal
+delivery_receipt_relay_suffix
+delivery_receipt_relayed_by
+delivery_receipt_relayed_by_unknown
+delivery_receipt_uncertain
+delivery_receipts_first_relay_note
 demo_mode
 demo_mode_replay
 desc_node_filter_clear

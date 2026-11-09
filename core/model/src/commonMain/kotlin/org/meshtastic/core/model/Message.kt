@@ -313,6 +313,8 @@ data class Message(
     val xeddsaSigned: Boolean = false,
     /** The radio's verdict on the ack that delivered this message (see [MeshPacket.AckProofStatus]). */
     val ackProofStatus: Int = 0,
+    /** The acks that settled this outgoing message, oldest first (see [DeliveryReceipt]). */
+    val receipts: List<DeliveryReceipt> = emptyList(),
     /** On-device translation of [text], persisted so the user can toggle back to it without re-translating. */
     val translatedText: String? = null,
     /** Whether the bubble currently displays [translatedText] instead of [text]. */

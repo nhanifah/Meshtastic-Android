@@ -50,4 +50,6 @@ data class Reaction(
      * pre-schema-67 reactions. Null, not 0: 0 is TRANSPORT_INTERNAL.
      */
     val transportMechanism: Int? = null,
+    /** The acks that settled this outgoing reaction, oldest first (see [DeliveryReceipt]). */
+    val receipts: List<DeliveryReceipt> = emptyList(),
 )

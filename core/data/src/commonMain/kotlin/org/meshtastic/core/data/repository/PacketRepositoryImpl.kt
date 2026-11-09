@@ -575,6 +575,7 @@ class PacketRepositoryImpl(private val dbManager: DatabaseProvider, private val 
         ackProofStatus = ackProofStatus,
         viaMqtt = viaMqtt,
         transportMechanism = transportMechanism,
+        receipts = receipts,
     )
 
     override fun searchMessages(query: String, contactKey: String?, getNode: (String?) -> Node): Flow<List<Message>> {

@@ -79,6 +79,8 @@ import org.meshtastic.core.ui.icon.ShieldCheck
 import org.meshtastic.core.ui.theme.StatusColors.StatusGreen
 import org.meshtastic.core.ui.theme.StatusColors.StatusYellow
 import org.meshtastic.feature.messaging.DeliveryInfo
+import org.meshtastic.feature.messaging.ResolvedRelay
+import org.meshtastic.feature.messaging.relaySuffix
 
 @Composable
 internal fun ReactionItem(
@@ -211,6 +213,10 @@ internal fun ReactionDialog(
     /** False for an archived conversation: a failed reaction cannot be retried there. */
     canReact: Boolean = true,
     onResend: (Reaction) -> Unit = {},
+    /** Names the node behind a relay id byte in a reaction's delivery receipts. */
+    resolveRelay: (Int) -> ResolvedRelay = { ResolvedRelay(name = null, suffix = relaySuffix(it), uncertain = false) },
+    /** Display name for a node id, used for the addressed node of a direct-message reaction. */
+    nodeName: (String?) -> String? = { null },
 ) = ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState =
@@ -246,6 +252,9 @@ internal fun ReactionDialog(
             },
             onDismiss = { showStatusDialog = null },
             relays = reaction.relays,
+            receipts = reaction.receipts,
+            resolveRelay = resolveRelay,
+            recipientName = if (isDirectMessage) nodeName(reaction.to) else null,
         )
     }
 

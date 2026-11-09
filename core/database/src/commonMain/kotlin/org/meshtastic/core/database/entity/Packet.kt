@@ -27,6 +27,7 @@ import okio.ByteString
 import org.meshtastic.core.common.util.nowMillis
 import org.meshtastic.core.model.ContactKey
 import org.meshtastic.core.model.DataPacket
+import org.meshtastic.core.model.DeliveryReceipt
 import org.meshtastic.core.model.Message
 import org.meshtastic.core.model.MessageStatus
 import org.meshtastic.core.model.Node
@@ -75,6 +76,7 @@ data class PacketEntity(
             transportMechanism = data.transportMechanism,
             xeddsaSigned = data.xeddsaSigned,
             ackProofStatus = data.ackProofStatus,
+            receipts = data.receipts,
             translatedText = translatedText,
             showTranslated = showTranslated,
         )
@@ -201,6 +203,8 @@ data class ReactionEntity(
     /** Rows written before schema 67 read as not via MQTT, with a null transport. */
     @ColumnInfo(name = "via_mqtt", defaultValue = "0") val viaMqtt: Boolean = false,
     @ColumnInfo(name = "transport_mechanism") val transportMechanism: Int? = null,
+    /** Rows written before schema 68 read as no receipts. */
+    @ColumnInfo(name = "receipts", defaultValue = "'[]'") val receipts: List<DeliveryReceipt> = emptyList(),
 )
 
 suspend fun ReactionEntity.toReaction(getNode: suspend (userId: String?) -> Node?): Reaction {
@@ -225,6 +229,7 @@ suspend fun ReactionEntity.toReaction(getNode: suspend (userId: String?) -> Node
         ackProofStatus = ackProofStatus,
         viaMqtt = viaMqtt,
         transportMechanism = transportMechanism,
+        receipts = receipts,
     )
 }
 

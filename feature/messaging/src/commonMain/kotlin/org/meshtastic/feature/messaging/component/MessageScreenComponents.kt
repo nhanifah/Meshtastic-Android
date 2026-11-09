@@ -131,7 +131,9 @@ import org.meshtastic.core.ui.icon.Unmuted
 import org.meshtastic.core.ui.icon.Visibility
 import org.meshtastic.core.ui.icon.VisibilityOff
 import org.meshtastic.feature.messaging.DeliveryInfo
+import org.meshtastic.feature.messaging.ResolvedRelay
 import org.meshtastic.feature.messaging.TranslationDialogState
+import org.meshtastic.feature.messaging.relaySuffix
 import org.meshtastic.proto.ChannelSet
 
 // region ── ScrollToBottomFab ──
@@ -707,6 +709,9 @@ fun MessageStatusDialog(
     onResend: () -> Unit,
     onDismiss: () -> Unit,
     isDirectMessage: Boolean = false,
+    resolveRelay: (Int) -> ResolvedRelay = { ResolvedRelay(name = null, suffix = relaySuffix(it), uncertain = false) },
+    recipientName: String? = null,
+    onTraceroute: (() -> Unit)? = null,
 ) {
     val (title, text) = message.getStatusStringRes(isDirectMessage)
     DeliveryInfo(
@@ -715,6 +720,10 @@ fun MessageStatusDialog(
         text = text,
         detail = message.getStatusDetailRes(),
         relays = message.relays,
+        receipts = message.receipts,
+        resolveRelay = resolveRelay,
+        recipientName = recipientName,
+        onTraceroute = onTraceroute,
         onConfirm = onResend,
         onDismiss = onDismiss,
     )

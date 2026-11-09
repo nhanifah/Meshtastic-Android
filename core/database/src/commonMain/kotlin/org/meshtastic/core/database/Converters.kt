@@ -19,10 +19,12 @@ package org.meshtastic.core.database
 import androidx.room3.ColumnTypeConverter
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import org.meshtastic.core.model.DataPacket
+import org.meshtastic.core.model.DeliveryReceipt
 import org.meshtastic.core.model.MessageStatus
 import org.meshtastic.core.model.util.decodeOrNull
 import org.meshtastic.proto.ChannelSet
@@ -44,6 +46,8 @@ class Converters {
         encodeDefaults = true
         exceptionsWithDebugInfo = false
     }
+
+    private val receiptListSerializer = ListSerializer(DeliveryReceipt.serializer())
 
     @ColumnTypeConverter
     fun dataFromString(value: String): DataPacket = json.decodeFromString(DataPacket.serializer(), value)
@@ -92,6 +96,16 @@ class Converters {
 
     @ColumnTypeConverter fun channelSetToBytes(value: ChannelSet): ByteArray = ChannelSet.ADAPTER.encode(value)
 
+    /** Unreadable JSON reads as no receipts rather than failing the whole row: receipts are display-only. */
+    @ColumnTypeConverter
+    fun receiptsFromString(value: String): List<DeliveryReceipt> = runCatching {
+        json.decodeFromString(receiptListSerializer, value)
+    }
+        .getOrDefault(emptyList())
+
+    @ColumnTypeConverter
+    fun receiptsToString(value: List<DeliveryReceipt>): String = json.encodeToString(receiptListSerializer, value)
+
     @ColumnTypeConverter
     fun fromStringList(value: String?): List<String>? {
         if (value == null) {
@@ -114,16 +128,18 @@ class Converters {
 
     /** Discovery scans capture the radio's pre-scan LoRa config so an interrupted scan can restore it later. */
     @ColumnTypeConverter
-    fun bytesToLoRaConfig(bytes: ByteArray?): Config.LoRaConfig? =
-        bytes?.let { Config.LoRaConfig.ADAPTER.decodeOrNull(it, Logger) }
+    fun bytesToLoRaConfig(bytes: ByteArray?): Config.LoRaConfig? = bytes?.let {
+        Config.LoRaConfig.ADAPTER.decodeOrNull(it, Logger)
+    }
 
     @ColumnTypeConverter
     fun loRaConfigToBytes(value: Config.LoRaConfig?): ByteArray? = value?.let { Config.LoRaConfig.ADAPTER.encode(it) }
 
     /** Discovery scans capture the radio's pre-scan primary channel to restore after a custom-channel target. */
     @ColumnTypeConverter
-    fun bytesToChannelSettings(bytes: ByteArray?): ChannelSettings? =
-        bytes?.let { ChannelSettings.ADAPTER.decodeOrNull(it, Logger) }
+    fun bytesToChannelSettings(bytes: ByteArray?): ChannelSettings? = bytes?.let {
+        ChannelSettings.ADAPTER.decodeOrNull(it, Logger)
+    }
 
     @ColumnTypeConverter
     fun channelSettingsToBytes(value: ChannelSettings?): ByteArray? = value?.let { ChannelSettings.ADAPTER.encode(it) }

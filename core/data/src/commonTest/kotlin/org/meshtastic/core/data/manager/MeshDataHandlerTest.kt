@@ -41,6 +41,7 @@ import okio.ByteString.Companion.toByteString
 import org.meshtastic.core.common.di.asServiceScope
 import org.meshtastic.core.model.ContactSettings
 import org.meshtastic.core.model.DataPacket
+import org.meshtastic.core.model.DeliveryReceipt
 import org.meshtastic.core.model.MessageStatus
 import org.meshtastic.core.model.Node
 import org.meshtastic.core.model.NodeAddress
@@ -737,16 +738,29 @@ class MeshDataHandlerTest {
 
     // --- Routing/ACK-NAK handling ---
 
+    @Suppress("LongParameterList")
     private fun routingPacket(
         error: Routing.Error,
         ackProofStatus: MeshPacket.AckProofStatus = MeshPacket.AckProofStatus.ACK_PROOF_ABSENT,
+        from: Int = 456,
+        fromId: String = "!remote",
+        relayNode: Int = 0,
+        rxRssi: Int? = null,
+        rxSnr: Float? = null,
+        hopStart: Int = 0,
+        hopLimit: Int = 0,
     ): MeshPacket {
         val routing = Routing.Builder().also { wb -> wb.error_reason = error }.build()
         val packet =
             MeshPacket.Builder()
                 .also { wb ->
-                    wb.from = 456
+                    wb.from = from
                     wb.ack_proof_status = ackProofStatus
+                    wb.relay_node = relayNode
+                    wb.rx_rssi = rxRssi
+                    rxSnr?.let { wb.rx_snr = it }
+                    wb.hop_start = hopStart
+                    wb.hop_limit = hopLimit
                     wb.decoded =
                         Data.Builder()
                             .also { wb ->
@@ -764,7 +778,7 @@ class MeshDataHandlerTest {
                 bytes = routing.encode().toByteString(),
                 dataType = PortNum.ROUTING_APP.value,
             )
-        every { nodeManager.toNodeID(456) } returns "!remote"
+        every { nodeManager.toNodeID(from) } returns fromId
         return packet
     }
 
@@ -814,6 +828,81 @@ class MeshDataHandlerTest {
         advanceUntilIdle()
 
         assertEquals(MeshPacket.AckProofStatus.ACK_PROOF_INVALID.value, updates.single().ackProofStatus)
+    }
+
+    @Test
+    fun `an implicit ack records the relayer and the signal it was heard at`() = testScope.runTest {
+        val updates = mutableListOf<DataPacket>()
+        everySuspend { packetRepository.findPacketsWithId(99) } returns listOf(sentPacket())
+        everySuspend { packetRepository.update(any(), any()) } calls { call -> updates.add(call.arg(0)) }
+
+        handler.handleReceivedData(
+            routingPacket(
+                Routing.Error.NONE,
+                from = 123,
+                fromId = "!0000007b",
+                relayNode = 0x7f,
+                rxRssi = -92,
+                rxSnr = 6.5f,
+            ),
+            123,
+        )
+        advanceUntilIdle()
+
+        val receipt = updates.single().receipts.single()
+        assertEquals(0x7f, receipt.relayNode)
+        assertEquals(-92, receipt.rssi)
+        assertEquals(6.5f, receipt.snr)
+        assertEquals(false, receipt.fromRecipient)
+        assertEquals(-1, receipt.hopsAway)
+    }
+
+    @Test
+    fun `the recipient's ack is marked as such and keeps earlier receipts`() = testScope.runTest {
+        val updates = mutableListOf<DataPacket>()
+        val earlier = DeliveryReceipt(relayNode = 0x7f, rssi = -92)
+        everySuspend { packetRepository.findPacketsWithId(99) } returns
+            listOf(sentPacket().copy(receipts = listOf(earlier)))
+        everySuspend { packetRepository.update(any(), any()) } calls { call -> updates.add(call.arg(0)) }
+
+        handler.handleReceivedData(
+            routingPacket(Routing.Error.NONE, relayNode = 0x11, rxRssi = -100, hopStart = 3, hopLimit = 1),
+            123,
+        )
+        advanceUntilIdle()
+
+        val receipts = updates.single().receipts
+        assertEquals(earlier, receipts.first())
+        assertEquals(true, receipts.last().fromRecipient)
+        assertEquals(2, receipts.last().hopsAway)
+        assertEquals(0x11, receipts.last().relayNode)
+    }
+
+    @Test
+    fun `a relay byte equal to our own names no relayer`() = testScope.runTest {
+        val updates = mutableListOf<DataPacket>()
+        everySuspend { packetRepository.findPacketsWithId(99) } returns listOf(sentPacket())
+        everySuspend { packetRepository.update(any(), any()) } calls { call -> updates.add(call.arg(0)) }
+
+        handler.handleReceivedData(
+            routingPacket(Routing.Error.NONE, from = 123, fromId = "!0000007b", relayNode = 123),
+            123,
+        )
+        advanceUntilIdle()
+
+        assertEquals(null, updates.single().receipts.single().relayNode)
+    }
+
+    @Test
+    fun `a nak records no receipt`() = testScope.runTest {
+        val updates = mutableListOf<DataPacket>()
+        everySuspend { packetRepository.findPacketsWithId(99) } returns listOf(sentPacket())
+        everySuspend { packetRepository.update(any(), any()) } calls { call -> updates.add(call.arg(0)) }
+
+        handler.handleReceivedData(routingPacket(Routing.Error.MAX_RETRANSMIT, relayNode = 0x7f, rxRssi = -92), 123)
+        advanceUntilIdle()
+
+        assertEquals(emptyList(), updates.single().receipts)
     }
 
     @Test

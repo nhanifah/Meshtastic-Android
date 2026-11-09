@@ -141,6 +141,8 @@ private const val COUNTER_VISIBLE_WITHIN_BYTES = 20
  * @param message An optional message to pre-fill in the input field.
  * @param viewModel The [MessageViewModel] instance for handling business logic and state.
  * @param navigateToNodeDetails Callback to navigate to a node's detail screen.
+ * @param navigateToTraceroute Callback to open a node's traceroute log, offered from a direct message's delivery
+ *   dialog.
  * @param navigateToQuickChatOptions Callback to navigate to the quick chat options screen.
  * @param navigateToFilterSettings Callback to navigate to the message filter settings screen.
  * @param onNavigateBack Callback to navigate back from this screen.
@@ -156,6 +158,7 @@ fun MessageScreen(
     navigateToQuickChatOptions: () -> Unit,
     navigateToFilterSettings: () -> Unit,
     onNavigateBack: () -> Unit,
+    navigateToTraceroute: (Int) -> Unit = {},
 ) {
     val coroutineScope = rememberCoroutineScope()
     val clipboardManager = LocalClipboard.current
@@ -561,6 +564,7 @@ fun MessageScreen(
                     onReply = { message -> if (!isRetiredChannel) replyingToPacketId = message?.packetId },
                     onTranslate = { onEvent(MessageScreenEvent.TranslateMessage(it)) },
                     onToggleTranslation = { onEvent(MessageScreenEvent.ToggleShowTranslated(it)) },
+                    onTraceroute = navigateToTraceroute,
                 ),
                 quickEmojis = viewModel.frequentEmojis,
             )
