@@ -134,9 +134,7 @@ object CloneIcons {
     private fun loadCustom(context: Context, profile: CloneProfile, sizePx: Int): Bitmap? {
         if (!profile.hasCustomIcon) return null
         val file: File = CloneRegistry.customIconFile(context, profile.slot)
-        if (!file.exists()) return null
-        val decoded = BitmapFactory.decodeFile(file.path) ?: return null
-        return centerCrop(decoded, sizePx)
+        return file.takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) }?.let { centerCrop(it, sizePx) }
     }
 
     /** Scales [source] to cover a square of [sizePx] and crops the overflow evenly from both sides. */

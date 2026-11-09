@@ -93,9 +93,12 @@ object AppInstance {
 
     /** Parses `<package>:cloneN` into N; anything else, the main process included, is slot 0. */
     fun slotForProcess(processName: String?, packageName: String): Int {
-        val suffix = processName?.removePrefix(packageName)?.takeIf { it != processName } ?: return 0
-        if (!suffix.startsWith(PROCESS_SUFFIX_PREFIX)) return 0
-        return suffix.removePrefix(PROCESS_SUFFIX_PREFIX).toIntOrNull()?.takeIf { it > 0 } ?: 0
+        val suffix = processName?.removePrefix(packageName)?.takeIf { it != processName }
+        return suffix
+            ?.takeIf { it.startsWith(PROCESS_SUFFIX_PREFIX) }
+            ?.removePrefix(PROCESS_SUFFIX_PREFIX)
+            ?.toIntOrNull()
+            ?.takeIf { it > 0 } ?: 0
     }
 
     /** Root of a slot's private files; valid from any process, so the main app can wipe a deleted clone. */

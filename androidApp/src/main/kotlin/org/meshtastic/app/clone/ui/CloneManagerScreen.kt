@@ -67,6 +67,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -138,7 +139,11 @@ private fun loadSnapshot(context: Context): CloneSnapshot {
 /** Where the user adds, customizes, opens and deletes app clones. Only reachable from the main app. */
 @Suppress("LongMethod")
 @Composable
-fun CloneManagerScreen(onNavigateUp: () -> Unit) {
+fun CloneManagerScreen(
+    onNavigateUp: () -> Unit,
+    modifier: Modifier = Modifier,
+    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) {
     val context = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf(CloneSnapshot()) }
@@ -150,13 +155,13 @@ fun CloneManagerScreen(onNavigateUp: () -> Unit) {
     var logoSlot by rememberSaveable { mutableStateOf<Int?>(null) }
 
     suspend fun refresh() {
-        snapshot = withContext(Dispatchers.IO) { loadSnapshot(context) }
+        snapshot = withContext(ioDispatcher) { loadSnapshot(context) }
     }
 
     /** Runs [block] off the main thread, then reloads the list. */
     fun mutate(block: () -> Unit) {
         scope.launch {
-            withContext(Dispatchers.IO) { block() }
+            withContext(ioDispatcher) { block() }
             refresh()
         }
     }
@@ -185,6 +190,7 @@ fun CloneManagerScreen(onNavigateUp: () -> Unit) {
         }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             MainAppBar(
                 title = stringResource(Res.string.clone_manager_title),

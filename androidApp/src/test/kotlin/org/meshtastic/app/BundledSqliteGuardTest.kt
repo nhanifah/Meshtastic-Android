@@ -63,6 +63,8 @@ class BundledSqliteGuardTest {
             add("org.meshtastic.feature.widget.LocalStatsWidgetReceiver")
             add("org.meshtastic.feature.widget.NodeTrackerWidgetReceiver")
             if (BuildConfig.FLAVOR == "google") add("org.meshtastic.app.ai.appfunctions.MeshtasticAppFunctionService")
+            // Each clone slot's radio service is a MeshService of its own and goes down with the main one.
+            (1..BuildConfig.CLONE_SLOTS).forEach { add("org.meshtastic.app.clone.CloneMeshService$it") }
         }
 
         val entryPoints = context.appEntryPoints()

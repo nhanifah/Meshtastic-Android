@@ -16,7 +16,6 @@
  */
 package org.meshtastic.app
 
-import android.app.ActivityManager
 import android.app.PendingIntent
 import android.app.TaskStackBuilder
 import android.content.Intent
@@ -51,8 +50,7 @@ import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import org.meshtastic.app.clone.CloneIcons
-import org.meshtastic.app.clone.CloneRegistry
+import org.meshtastic.app.clone.applyCloneTaskIdentity
 import org.meshtastic.app.intro.AnalyticsIntro
 import org.meshtastic.app.map.getMapViewProvider
 import org.meshtastic.app.node.component.InlineMap
@@ -196,20 +194,6 @@ open class MainActivity : AppCompatActivity() {
 
         // A recreated activity gets its launch intent back; acting on it again would re-import or re-open it.
         if (savedInstanceState == null) handleIntent(intent)
-    }
-
-    /** Names the clone's Recents card after the clone and gives it the clone's icon. */
-    @Suppress("TooGenericExceptionCaught")
-    private fun applyCloneTaskIdentity() {
-        val profile = CloneRegistry.find(this, AppInstance.slot) ?: return
-        try {
-            val icon = CloneIcons.render(this, profile, TASK_ICON_PX)
-            // The Builder (API 33) only takes a drawable resource id; a rendered bitmap still needs this constructor.
-            @Suppress("DEPRECATION")
-            setTaskDescription(ActivityManager.TaskDescription(profile.name, icon, profile.color.toInt()))
-        } catch (e: Exception) {
-            Logger.w(e) { "Could not set the clone's task description" }
-        }
     }
 
     override fun onStart() {
@@ -458,7 +442,6 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private companion object {
-        const val TASK_ICON_PX = 192
         const val EXTRA_SKIP_ONBOARDING = "skip_onboarding"
         const val EXTRA_SKIP_CONNECT_CONFIRM = "skip_connect_confirm"
 

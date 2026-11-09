@@ -22,7 +22,9 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.annotation.Single
 import org.meshtastic.core.common.AppInstance
 import org.meshtastic.core.common.di.ServiceScope
@@ -77,12 +79,17 @@ class AndroidMeshWorkerManager(
             if (radioController.connectionState.value != ConnectionState.Connected) return@launch
             val claimed = packetRepository.claimQueuedPacket(persistedId) ?: return@launch
             if (claimed.packet.status != MessageStatus.QUEUED) return@launch
+            var sent = false
             try {
                 radioController.sendMessage(claimed.packet)
+                sent = true
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                packetRepository.rollbackEnroutePacket(claimed.id)
-                if (e is CancellationException) throw e
                 Logger.w(e) { "Clone send failed; the packet stays queued" }
+            } finally {
+                // Also runs on cancellation, so it must outlive it, or the packet stays ENROUTE until the next sweep.
+                if (!sent) withContext(NonCancellable) { packetRepository.rollbackEnroutePacket(claimed.id) }
             }
         }
     }
