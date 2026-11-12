@@ -88,6 +88,7 @@ import org.meshtastic.feature.settings.radio.component.TelemetryConfigScreen
 import org.meshtastic.feature.settings.radio.component.UserConfigScreen
 import org.meshtastic.feature.settings.search.LocalSettingsFieldFocus
 import org.meshtastic.feature.settings.search.SettingsFieldFocus
+import org.meshtastic.feature.settings.webaccess.WebAccessScreen
 import kotlin.reflect.KClass
 
 /**
@@ -413,6 +414,14 @@ fun EntryProviderScope<NavKey>.settingsGraph(
     }
 
     entry<SettingsRoute.TakServer> { TakServerScreen(onBack = dropUnlessResumed { backStack.removeLastOrNull() }) }
+    entry<SettingsRoute.WebAccess> { WebAccessScreen(onBack = dropUnlessResumed { backStack.removeLastOrNull() }) }
+
+    entry<SettingsRoute.AppUpdate> {
+        AppUpdateScreen(
+            viewModel = koinViewModel<AppUpdateViewModel>(),
+            onBack = dropUnlessResumed { backStack.removeLastOrNull() },
+        )
+    }
 
     entry<SettingsRoute.AppUpdate> {
         AppUpdateScreen(

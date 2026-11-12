@@ -2416,6 +2416,22 @@
     <string name="waypoint_edit">Edit waypoint</string>
     <string name="waypoint_new">New waypoint</string>
     <string name="waypoint_received">Received waypoint: %1$s</string>
+    <!-- WEB -->
+    <string name="web_access">Web access</string>
+    <string name="web_access_browser">Browser %1$s</string>
+    <string name="web_access_browsers">Connected browsers</string>
+    <string name="web_access_certificate_notice">The browser will warn that the connection is not private, because the phone signs its own certificate. Check that the fingerprint matches, then continue.</string>
+    <string name="web_access_connect_hint">In the web client, add a Network (HTTP) connection to %1$s with HTTPS turned on.</string>
+    <string name="web_access_enabled">Allow browser access</string>
+    <string name="web_access_enabled_desc">Use this radio from a browser on the same Wi-Fi. The phone stays connected to the radio and must keep running.</string>
+    <string name="web_access_fingerprint">Certificate fingerprint</string>
+    <string name="web_access_new_code">New code</string>
+    <string name="web_access_no_browsers">No browser paired yet</string>
+    <string name="web_access_no_client">This build does not include the web client. Only the radio API is available.</string>
+    <string name="web_access_no_network">Connect the phone to Wi-Fi or turn on its hotspot, then try again.</string>
+    <string name="web_access_scan">Scan this code from the computer, or type the address below into a browser on it.</string>
+    <string name="web_access_start_failed">Could not start web access.</string>
+    <string name="web_access_starting">Starting…</string>
     <string name="website">Website</string>
     <string name="weight">Weight</string>
     <string name="what_is_meshtastic">What is Meshtastic?</string>

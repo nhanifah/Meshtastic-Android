@@ -65,6 +65,7 @@ import org.meshtastic.core.resources.restore_app_database
 import org.meshtastic.core.resources.set_time
 import org.meshtastic.core.resources.shutdown
 import org.meshtastic.core.resources.tak_server
+import org.meshtastic.core.resources.web_access
 import org.meshtastic.core.ui.component.ListItem
 import org.meshtastic.core.ui.icon.AdminPanelSettings
 import org.meshtastic.core.ui.icon.AppSettingsAlt
@@ -72,6 +73,7 @@ import org.meshtastic.core.ui.icon.BugReport
 import org.meshtastic.core.ui.icon.ChevronRight
 import org.meshtastic.core.ui.icon.CleaningServices
 import org.meshtastic.core.ui.icon.Download
+import org.meshtastic.core.ui.icon.Language
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.PermScanWifi
 import org.meshtastic.core.ui.icon.Settings
@@ -271,6 +273,13 @@ private fun AdvancedSection(isManaged: Boolean, isOtaCapable: Boolean, enabled: 
             leadingIcon = MeshtasticIcons.Settings,
             enabled = enabled,
             onClick = { onNavigate(SettingsRoute.TakServer) },
+        )
+
+        ListItem(
+            text = stringResource(Res.string.web_access),
+            leadingIcon = MeshtasticIcons.Language,
+            enabled = enabled,
+            onClick = { onNavigate(SettingsRoute.WebAccess) },
         )
 
         ListItem(

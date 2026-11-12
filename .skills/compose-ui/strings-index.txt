@@ -2341,6 +2341,22 @@ waypoint_delete
 waypoint_edit
 waypoint_new
 waypoint_received
+### WEB ###
+web_access
+web_access_browser
+web_access_browsers
+web_access_certificate_notice
+web_access_connect_hint
+web_access_enabled
+web_access_enabled_desc
+web_access_fingerprint
+web_access_new_code
+web_access_no_browsers
+web_access_no_client
+web_access_no_network
+web_access_scan
+web_access_start_failed
+web_access_starting
 website
 weight
 what_is_meshtastic

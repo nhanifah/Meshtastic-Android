@@ -20,6 +20,8 @@ import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import okio.ByteString
 import org.meshtastic.core.model.ConnectionState
 import org.meshtastic.core.model.DeviceType
 import org.meshtastic.core.model.InterfaceId
@@ -168,6 +170,16 @@ interface RadioInterfaceService :
      * ordering; do not swap in a [SharedFlow] without preserving order.
      */
     val receivedData: Flow<ReceivedRadioFrame>
+
+    /**
+     * Read-only copy of every frame admitted to [receivedData], for observers (such as the web bridge) that need to see
+     * radio traffic without taking frames away from the app's own single consumer.
+     *
+     * Lossy by design: a collector that falls behind loses the oldest frames rather than slowing the radio pipeline.
+     * Frames are mirrored only while someone is collecting, so an idle mirror costs nothing.
+     */
+    val receivedDataMirror: Flow<ByteString>
+        get() = emptyFlow()
 
     /** Flow of radio activity events. */
     val meshActivity: Flow<MeshActivity>

@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -56,6 +57,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import org.koin.core.annotation.Named
 import org.koin.core.annotation.Single
@@ -449,6 +451,15 @@ class SharedRadioInterfaceService(
     /** Running count of frames dropped because the queue was full. Diagnostic only; see [enqueueReceivedData]. */
     private var droppedFrameCount = 0L
 
+    // Lossy copy of admitted frames for side observers (the web bridge). DROP_OLDEST means tryEmit never fails or
+    // blocks, so a stalled observer cannot slow or reorder the primary [_receivedData] path.
+    private val _receivedDataMirror =
+        MutableSharedFlow<ByteString>(
+            extraBufferCapacity = MIRROR_BUFFER_CAPACITY,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+    override val receivedDataMirror: Flow<ByteString> = _receivedDataMirror.asSharedFlow()
+
     private val _meshActivity =
         MutableSharedFlow<MeshActivity>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     override val meshActivity: Flow<MeshActivity> = _meshActivity.asFlow()
@@ -523,6 +534,13 @@ class SharedRadioInterfaceService(
          * closer to 100 B, so the realistic ceiling is well under the ~4 MB absolute worst case.
          */
         const val RECEIVE_QUEUE_CAPACITY = 8192
+
+        /**
+         * Frames buffered for each slow [receivedDataMirror] collector before the oldest are dropped. A full config
+         * dump is answered locally by the web bridge rather than mirrored, so this only needs to absorb live-traffic
+         * bursts.
+         */
+        private const val MIRROR_BUFFER_CAPACITY = 256
 
         /** Log one dropped-frame warning per this many drops. See [enqueueReceivedData]. */
         private const val DROP_LOG_INTERVAL = 512L
@@ -1191,6 +1209,7 @@ class SharedRadioInterfaceService(
             val frame = ReceivedRadioFrame(payload = bytes.toByteString(), session = session.context)
             val result = _receivedData.trySend(frame)
             if (result.isSuccess) {
+                if (_receivedDataMirror.subscriptionCount.value > 0) _receivedDataMirror.tryEmit(frame.payload)
                 // Stamp liveness only for frames actually admitted to the queue. Stamping on arrival kept
                 // checkLiveness() satisfied while a wedged consumer dropped every frame — a Connected-looking zombie
                 // the watchdog existed to catch. A full queue now reads as silence and trips liveness recovery.

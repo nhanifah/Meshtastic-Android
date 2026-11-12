@@ -72,6 +72,11 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 
+# ---- Ktor server (:core:webbridge) -------------------------------------------
+# Ktor's IntelliJ debugger detector references java.lang.management, which Android does
+# not ship. The detector only runs under a JVM debugger, never on a device.
+-dontwarn java.lang.management.**
+
 # ---- BouncyCastle (per-install TAK server certificates) -----------------------
 # :core:takserver instantiates `BouncyCastleProvider` directly and asks it for the
 # PKCS12 KeyStore and SHA256withRSA signer by name; the provider resolves those

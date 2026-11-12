@@ -37,6 +37,7 @@ kotlin {
             implementation(projects.core.ui)
             implementation(projects.core.di)
             implementation(projects.core.takserver)
+            implementation(projects.core.webbridge)
 
             implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.collections.immutable)

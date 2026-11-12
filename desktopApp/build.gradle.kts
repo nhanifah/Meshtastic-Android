@@ -396,6 +396,7 @@ dependencies {
     implementation(projects.core.prefs)
     implementation(projects.core.network)
     implementation(projects.core.takserver)
+    implementation(projects.core.webbridge)
     implementation(projects.core.resources)
     implementation(projects.core.service)
     implementation(projects.core.ui)

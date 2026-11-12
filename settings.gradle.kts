@@ -105,6 +105,7 @@ include(
     ":core:service",
     ":core:resources",
     ":core:takserver",
+    ":core:webbridge",
     ":core:testing",
     ":core:ui",
     ":feature:intro",

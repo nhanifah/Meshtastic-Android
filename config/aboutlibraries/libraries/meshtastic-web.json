@@ -1,0 +1,9 @@
+{
+  "uniqueId": "org.meshtastic:web",
+  "artifactVersion": "2.7.2",
+  "name": "Meshtastic Web",
+  "description": "The Meshtastic web client, served by the phone's Web access bridge.",
+  "website": "https://github.com/meshtastic/web",
+  "developers": [{ "name": "Meshtastic" }],
+  "licenses": ["GPL-3.0"]
+}

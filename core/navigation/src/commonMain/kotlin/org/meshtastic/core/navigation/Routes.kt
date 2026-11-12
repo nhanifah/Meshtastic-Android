@@ -188,6 +188,8 @@ sealed interface SettingsRoute : Route {
 
     @Serializable data object TakServer : SettingsRoute
 
+    @Serializable data object WebAccess : SettingsRoute
+
     /** Checks this build's GitHub releases and installs a newer build. */
     @Serializable data object AppUpdate : SettingsRoute
 

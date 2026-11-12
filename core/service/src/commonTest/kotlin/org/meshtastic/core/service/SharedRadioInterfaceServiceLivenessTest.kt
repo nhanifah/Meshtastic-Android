@@ -1118,6 +1118,23 @@ class SharedRadioInterfaceServiceLivenessTest {
         }
     }
 
+    @Test
+    fun `mirror copies admitted frames without taking them from the primary consumer`() = runTest(testDispatcher) {
+        val service = createConnectedService("xAA:BB:CC:DD:EE:FF")
+        try {
+            val payload = byteArrayOf(4, 5, 6)
+            val mirrored = async(start = CoroutineStart.UNDISPATCHED) { service.receivedDataMirror.first() }
+            val primary = async(start = CoroutineStart.UNDISPATCHED) { service.receivedData.first() }
+            service.handleFromRadio(payload)
+
+            assertContentEquals(payload, mirrored.await().toByteArray())
+            assertContentEquals(payload, primary.await().payload.toByteArray())
+        } finally {
+            service.disconnect()
+            advanceTimeBy(1_000L)
+        }
+    }
+
     /**
      * Regression for the field wedge behind "app shows Connected but the node stops updating": frames dropped by a full
      * receive queue must NOT feed the liveness timer. Before the fix, [SharedRadioInterfaceService] stamped

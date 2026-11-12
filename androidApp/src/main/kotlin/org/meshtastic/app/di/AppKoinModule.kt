@@ -47,6 +47,7 @@ import org.meshtastic.core.service.di.CoreServiceAndroidModule
 import org.meshtastic.core.service.di.CoreServiceModule
 import org.meshtastic.core.takserver.di.CoreTakServerModule
 import org.meshtastic.core.ui.di.CoreUiModule
+import org.meshtastic.core.webbridge.di.CoreWebBridgeModule
 import org.meshtastic.feature.connections.di.FeatureConnectionsModule
 import org.meshtastic.feature.discovery.di.FeatureDiscoveryModule
 import org.meshtastic.feature.docs.di.FeatureDocsModule
@@ -83,6 +84,7 @@ import org.meshtastic.feature.wifiprovision.di.FeatureWifiProvisionModule
         CoreNetworkModule::class,
         CoreNetworkAndroidModule::class,
         CoreTakServerModule::class,
+        CoreWebBridgeModule::class,
         CoreUiModule::class,
         FeatureNodeModule::class,
         FeatureMessagingModule::class,
