@@ -58,7 +58,10 @@ class RangeTestViewModel(
             .stateInWhileSubscribed(initialValue = null)
 
     init {
-        safeLaunch(tag = "rangeTestCloseStale") { recorder.closeStaleSessions() }
+        safeLaunch(tag = "rangeTestCloseStale") {
+            recorder.closeStaleSessions()
+            sender.closeStaleSessions()
+        }
     }
 
     fun stopRecording() {

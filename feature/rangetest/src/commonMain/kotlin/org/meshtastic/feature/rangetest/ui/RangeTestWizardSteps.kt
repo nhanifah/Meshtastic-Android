@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -46,7 +45,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -78,17 +76,18 @@ import org.meshtastic.core.resources.range_test_keep_connected
 import org.meshtastic.core.resources.range_test_location_intro
 import org.meshtastic.core.resources.range_test_location_phone_ok
 import org.meshtastic.core.resources.range_test_minutes
+import org.meshtastic.core.resources.range_test_mode
+import org.meshtastic.core.resources.range_test_mode_direct
+import org.meshtastic.core.resources.range_test_mode_direct_desc
+import org.meshtastic.core.resources.range_test_mode_message
+import org.meshtastic.core.resources.range_test_mode_message_desc
 import org.meshtastic.core.resources.range_test_no_extra_channels
 import org.meshtastic.core.resources.range_test_no_node_match
-import org.meshtastic.core.resources.range_test_no_relay
-import org.meshtastic.core.resources.range_test_no_relay_desc
 import org.meshtastic.core.resources.range_test_paste_code
 import org.meshtastic.core.resources.range_test_pick_from_nodes
 import org.meshtastic.core.resources.range_test_pick_sender_intro
 import org.meshtastic.core.resources.range_test_radio_gps_none
 import org.meshtastic.core.resources.range_test_radio_gps_ok
-import org.meshtastic.core.resources.range_test_relay_off
-import org.meshtastic.core.resources.range_test_relay_on
 import org.meshtastic.core.resources.range_test_role_receiver
 import org.meshtastic.core.resources.range_test_role_receiver_desc
 import org.meshtastic.core.resources.range_test_role_sender
@@ -102,7 +101,6 @@ import org.meshtastic.core.resources.range_test_share_preset
 import org.meshtastic.core.resources.range_test_summary_channel
 import org.meshtastic.core.resources.range_test_summary_duration
 import org.meshtastic.core.resources.range_test_summary_interval
-import org.meshtastic.core.resources.range_test_summary_relay
 import org.meshtastic.core.resources.range_test_summary_role
 import org.meshtastic.core.resources.range_test_summary_sender
 import org.meshtastic.core.resources.range_test_summary_target
@@ -112,8 +110,6 @@ import org.meshtastic.core.resources.range_test_target_one
 import org.meshtastic.core.resources.range_test_target_one_desc
 import org.meshtastic.core.resources.range_test_until_stopped
 import org.meshtastic.core.resources.range_test_waiting_senders
-import org.meshtastic.core.resources.range_test_want_ack
-import org.meshtastic.core.resources.range_test_want_ack_desc
 import org.meshtastic.core.ui.icon.CellTower
 import org.meshtastic.core.ui.icon.Channel
 import org.meshtastic.core.ui.icon.CheckCircle
@@ -127,6 +123,7 @@ import org.meshtastic.core.ui.util.LocalBarcodeScannerSupported
 import org.meshtastic.core.ui.util.PermissionStatus
 import org.meshtastic.core.ui.util.rememberLocationPermissionState
 import org.meshtastic.core.ui.util.rememberQrCodePainter
+import org.meshtastic.feature.rangetest.RangeTestBeaconMode
 import org.meshtastic.feature.rangetest.RangeTestChannelOption
 import org.meshtastic.feature.rangetest.RangeTestDetectedSender
 import org.meshtastic.feature.rangetest.RangeTestNodeOption
@@ -158,8 +155,7 @@ internal data class WizardActions(
     val selectDestination: (Int) -> Unit,
     val setInterval: (Int) -> Unit,
     val setDuration: (Int?) -> Unit,
-    val setNoRelay: (Boolean) -> Unit,
-    val setWantAck: (Boolean) -> Unit,
+    val setMode: (RangeTestBeaconMode) -> Unit,
     val selectSender: (Int) -> Unit,
     val setNodeQuery: (String) -> Unit,
 )
@@ -425,18 +421,18 @@ private fun BeaconStep(state: RangeTestWizardState, actions: WizardActions, modi
             )
         }
         HorizontalDivider()
-        SwitchRow(
-            title = stringResource(Res.string.range_test_no_relay),
-            description = stringResource(Res.string.range_test_no_relay_desc),
-            checked = state.noRelay,
-            onCheckedChange = actions.setNoRelay,
+        SectionLabel(stringResource(Res.string.range_test_mode))
+        RadioRow(
+            title = stringResource(Res.string.range_test_mode_message),
+            subtitle = stringResource(Res.string.range_test_mode_message_desc),
+            selected = state.mode == RangeTestBeaconMode.MESSAGE,
+            onClick = { actions.setMode(RangeTestBeaconMode.MESSAGE) },
         )
-        SwitchRow(
-            title = stringResource(Res.string.range_test_want_ack),
-            description = stringResource(Res.string.range_test_want_ack_desc),
-            checked = state.wantAck && !state.broadcast,
-            onCheckedChange = actions.setWantAck,
-            enabled = !state.broadcast,
+        RadioRow(
+            title = stringResource(Res.string.range_test_mode_direct),
+            subtitle = stringResource(Res.string.range_test_mode_direct_desc),
+            selected = state.mode == RangeTestBeaconMode.DIRECT,
+            onClick = { actions.setMode(RangeTestBeaconMode.DIRECT) },
         )
     }
 }
@@ -560,8 +556,14 @@ private fun SenderSummary(state: RangeTestWizardState, data: WizardData) =
                 ?: stringResource(Res.string.range_test_until_stopped),
         )
         SummaryRow(
-            stringResource(Res.string.range_test_summary_relay),
-            stringResource(if (state.noRelay) Res.string.range_test_relay_off else Res.string.range_test_relay_on),
+            stringResource(Res.string.range_test_mode),
+            stringResource(
+                if (state.mode == RangeTestBeaconMode.MESSAGE) {
+                    Res.string.range_test_mode_message
+                } else {
+                    Res.string.range_test_mode_direct
+                },
+            ),
         )
     }
 
@@ -648,31 +650,6 @@ private fun RadioRow(
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
         }
-    }
-}
-
-@Composable
-private fun SwitchRow(
-    title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-) {
-    Row(
-        Modifier.fillMaxWidth()
-            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f).padding(end = 16.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 

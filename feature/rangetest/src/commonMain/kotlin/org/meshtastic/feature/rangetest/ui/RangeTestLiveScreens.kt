@@ -70,6 +70,7 @@ import org.meshtastic.core.resources.range_test_summary_interval
 import org.meshtastic.core.resources.range_test_summary_target
 import org.meshtastic.core.resources.range_test_target_all
 import org.meshtastic.core.resources.range_test_time_left
+import org.meshtastic.core.resources.range_test_unconfirmed
 import org.meshtastic.core.resources.range_test_unplaced
 import org.meshtastic.core.resources.range_test_waiting_beacon
 import org.meshtastic.core.ui.icon.CellTower
@@ -77,6 +78,7 @@ import org.meshtastic.core.ui.icon.Channel
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.NearMe
 import org.meshtastic.core.ui.util.KeepScreenOn
+import org.meshtastic.feature.rangetest.RangeTestBeaconMode
 import org.meshtastic.feature.rangetest.RangeTestChannelOption
 import org.meshtastic.feature.rangetest.RangeTestRecorderState
 import org.meshtastic.feature.rangetest.RangeTestSenderState
@@ -133,7 +135,10 @@ private fun SenderStatus(state: RangeTestSenderState) {
         StatRow(
             buildList {
                 add(stringResource(Res.string.range_test_sent) to state.sent.toString())
-                if (config.wantAck) add(stringResource(Res.string.range_test_acked) to state.acked.toString())
+                if (config.mode == RangeTestBeaconMode.MESSAGE) {
+                    add(stringResource(Res.string.range_test_acked) to state.acked.toString())
+                    add(stringResource(Res.string.range_test_unconfirmed) to state.unconfirmed.toString())
+                }
                 add(stringResource(Res.string.range_test_failed) to state.failed.toString())
             },
         )

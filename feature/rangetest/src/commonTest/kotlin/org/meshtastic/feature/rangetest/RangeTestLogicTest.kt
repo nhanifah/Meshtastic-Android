@@ -84,38 +84,109 @@ class RangeTestLogicTest {
         assertEquals(listOf(0, 1_000), summary.buckets.map { it.fromM })
     }
 
+    private fun app(seq: Int, run: String = "r1", left: Int? = null) =
+        RangeTestBeacon.Parsed(seq = seq, intervalSec = 10, runId = run, leftSec = left)
+
+    private fun firmware(seq: Int) = RangeTestBeacon.Parsed(seq = seq)
+
+    /** Ticks until nothing more is overdue (one tick reports at most a batch). */
+    private fun BeaconTracker.drain(now: Long): List<Int> = buildList {
+        while (true) {
+            val batch = onTick(now)
+            if (batch.isEmpty()) break
+            addAll(batch.map { it.seq })
+        }
+    }
+
     @Test
     fun relayedBeaconAdvancesSequenceSoItIsNeverMissed() {
-        val sequence = BeaconSequence()
-        assertTrue(sequence.advance(seq = 1, now = 0).isEmpty())
+        val tracker = BeaconTracker()
+        assertTrue(tracker.onBeacon(firmware(1), now = 0).missed.isEmpty())
         // Beacon 2 arrived through a relay: still received, so it must not show up as a gap later.
-        assertTrue(sequence.advance(seq = 2, now = 15_000).isEmpty())
-        assertTrue(sequence.advance(seq = 3, now = 30_000).isEmpty())
+        assertTrue(tracker.onBeacon(firmware(2), now = 15_000).missed.isEmpty())
+        assertTrue(tracker.onBeacon(firmware(3), now = 30_000).missed.isEmpty())
     }
 
     @Test
     fun skippedSequenceNumbersBecomeGapsWithInterpolatedTimes() {
-        val sequence = BeaconSequence()
-        sequence.advance(seq = 10, now = 0)
-        val gaps = sequence.advance(seq = 13, now = 30_000)
+        val tracker = BeaconTracker()
+        tracker.onBeacon(firmware(10), now = 0)
+        val gaps = tracker.onBeacon(firmware(13), now = 30_000).missed
         assertEquals(listOf(11, 12), gaps.map { it.seq })
         assertEquals(listOf(10_000L, 20_000L), gaps.map { it.dueAt })
     }
 
     @Test
     fun duplicatesAndRestartsAreNotLosses() {
-        val sequence = BeaconSequence()
-        sequence.advance(seq = 50, now = 0)
-        assertTrue(sequence.advance(seq = 50, now = 1_000).isEmpty())
+        val tracker = BeaconTracker()
+        tracker.onBeacon(firmware(50), now = 0)
+        val duplicate = tracker.onBeacon(firmware(50), now = 1_000)
+        assertTrue(duplicate.missed.isEmpty())
+        assertTrue(!duplicate.received)
         // The sender restarted from 1: a new run, not 49 lost beacons.
-        assertTrue(sequence.advance(seq = 1, now = 2_000).isEmpty())
-        assertEquals(listOf(2), sequence.advance(seq = 3, now = 4_000).map { it.seq })
+        assertTrue(tracker.onBeacon(firmware(1), now = 2_000).missed.isEmpty())
+        assertEquals(listOf(2), tracker.onBeacon(firmware(3), now = 4_000).missed.map { it.seq })
+    }
+
+    @Test
+    fun overdueBeaconsCountAsMissedWhileNothingArrives() {
+        val tracker = BeaconTracker()
+        tracker.onBeacon(app(1), now = 0)
+        // Beacon 2 is due at 10 s; it is not missed until the grace period (half an interval + 5 s) has passed.
+        assertTrue(tracker.onTick(now = 19_000).isEmpty())
+        assertEquals(listOf(2), tracker.onTick(now = 20_000).map { it.seq })
+        // Far out of range for a long time: every overdue beacon is counted, more than 100 included.
+        assertEquals((3..151).toList(), tracker.drain(now = 1_510_000))
+        // Back in range: the next beacon is received and nothing is counted twice.
+        val back = tracker.onBeacon(app(152), now = 1_515_000)
+        assertTrue(back.received)
+        assertTrue(back.missed.isEmpty())
+    }
+
+    @Test
+    fun aLateBeaconAlreadyCountedMissedIsRecovered() {
+        val tracker = BeaconTracker()
+        tracker.onBeacon(app(1), now = 0)
+        assertEquals(listOf(2), tracker.onTick(now = 20_000).map { it.seq })
+        val late = tracker.onBeacon(app(2), now = 21_000)
+        assertEquals(2, late.recovered)
+        assertTrue(late.received)
+    }
+
+    @Test
+    fun noMoreBeaconsAreExpectedAfterTheSenderEnds() {
+        val tracker = BeaconTracker()
+        tracker.onBeacon(app(1, left = 15), now = 0)
+        // Only beacon 2 (due at 10 s) was still to come before the run's end at 15 s.
+        assertEquals(listOf(2), tracker.onTick(now = 100_000).map { it.seq })
+        assertTrue(tracker.onTick(now = 200_000).isEmpty())
+
+        val stopped = BeaconTracker()
+        stopped.onBeacon(app(1), now = 0)
+        val end = stopped.onBeacon(RangeTestBeacon.Parsed(seq = 3, runId = "r1", isEnd = true), now = 25_000)
+        assertEquals(listOf(2, 3), end.missed.map { it.seq })
+        assertTrue(!end.received)
+        assertTrue(stopped.onTick(now = 500_000).isEmpty())
+    }
+
+    @Test
+    fun aNewRunIdStartsOver() {
+        val tracker = BeaconTracker()
+        tracker.onBeacon(app(40), now = 0)
+        val restart = tracker.onBeacon(app(45, run = "r2"), now = 5_000)
+        assertTrue(restart.missed.isEmpty())
+        assertTrue(restart.received)
     }
 
     @Test
     fun parsesOwnAndFirmwareBeacons() {
-        val own = beaconPacket(PortNum.PRIVATE_APP, RangeTestBeacon.encode(seq = 5, intervalSec = 15).utf8())
-        assertEquals(RangeTestBeacon.Parsed(seq = 5, intervalSec = 15), RangeTestBeacon.parse(own))
+        val own = beaconPacket(PortNum.PRIVATE_APP, RangeTestBeacon.encode(seq = 5, intervalSec = 15, "ab1", 60).utf8())
+        assertEquals(
+            RangeTestBeacon.Parsed(seq = 5, intervalSec = 15, runId = "ab1", leftSec = 60),
+            RangeTestBeacon.parse(own),
+        )
+        val end = beaconPacket(PortNum.PRIVATE_APP, RangeTestBeacon.encodeEnd(lastSeq = 7, runId = "ab1").utf8())
+        assertEquals(RangeTestBeacon.Parsed(seq = 7, runId = "ab1", isEnd = true), RangeTestBeacon.parse(end))
         val firmware = beaconPacket(PortNum.RANGE_TEST_APP, "seq 9")
         assertEquals(9, RangeTestBeacon.parse(firmware)?.seq)
         assertNull(RangeTestBeacon.parse(beaconPacket(PortNum.PRIVATE_APP, "something else")))

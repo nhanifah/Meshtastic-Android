@@ -44,6 +44,7 @@ import org.meshtastic.core.database.entity.RangeTestLocationSource
 import org.meshtastic.core.database.entity.RangeTestSampleEntity
 import org.meshtastic.core.database.entity.RangeTestSampleKind
 import org.meshtastic.core.database.entity.RangeTestSessionEntity
+import org.meshtastic.core.database.entity.RangeTestSessionRole
 import org.meshtastic.core.di.CoroutineDispatchers
 import org.meshtastic.core.model.Node
 import org.meshtastic.core.repository.NodeRepository
@@ -89,11 +90,13 @@ data class RangeTestRecorderState(
  * firmware Range Test module beacon), each tagged with the receiver's position (own radio GPS when it has a fresh fix,
  * otherwise the phone's GPS), RSSI, SNR and hop count.
  *
- * Gaps in the sender's sequence numbering (see [BeaconSequence]) become [RangeTestSampleKind.MISSED] samples placed
- * where the receiver was when the beacon was due, and a periodic [RangeTestSampleKind.TRACK] fix records the route.
+ * Beacons that never arrive (see [BeaconTracker]) become [RangeTestSampleKind.MISSED] samples placed where the receiver
+ * was when the beacon was due — found live by time, so losses also show while the sender is out of range. A periodic
+ * [RangeTestSampleKind.TRACK] fix records the route.
  *
  * Application-scoped so a recording survives leaving the screen; only one recording runs at a time.
  */
+@Suppress("TooManyFunctions")
 @Single
 class RangeTestRecorder(
     private val serviceRepository: ServiceRepository,
@@ -112,13 +115,13 @@ class RangeTestRecorder(
     val state: StateFlow<RangeTestRecorderState> = stateFlow.asStateFlow()
 
     // Recording-local bookkeeping; touched only from the packet collector.
-    private val sequence = BeaconSequence()
+    private val tracker = BeaconTracker()
     private val recentFixes = ArrayDeque<RangeTestFix>()
 
     suspend fun start(target: Node) = mutex.withLock {
         if (job != null) return@withLock
         val now = nowMillis
-        rangeTestDao.closeOpenSessions(now)
+        rangeTestDao.closeOpenSessionsOfRole(now, RangeTestSessionRole.RECEIVER)
         val position = target.validPosition?.let { target.latitude to target.longitude }
         val sessionId =
             rangeTestDao.insertSession(
@@ -130,7 +133,7 @@ class RangeTestRecorder(
                     startedAt = now,
                 ),
             )
-        sequence.reset()
+        tracker.reset()
         recentFixes.clear()
         stateFlow.value =
             RangeTestRecorderState(
@@ -144,6 +147,7 @@ class RangeTestRecorder(
                 launch { trackFixes() }
                 launch { trackTargetPosition(sessionId, target.num, targetPosition) }
                 launch { recordTrack(sessionId) }
+                launch { watchOverdue(sessionId, targetPosition) }
                 serviceRepository.meshPacketFlow
                     .filter { it.from == target.num }
                     .collect { packet ->
@@ -155,7 +159,7 @@ class RangeTestRecorder(
 
     /** Marks sessions left open by a process death as ended, unless one is actually recording now. */
     suspend fun closeStaleSessions() = mutex.withLock {
-        if (job == null) rangeTestDao.closeOpenSessions(nowMillis)
+        if (job == null) rangeTestDao.closeOpenSessionsOfRole(nowMillis, RangeTestSessionRole.RECEIVER)
     }
 
     suspend fun stop() = mutex.withLock {
@@ -217,6 +221,20 @@ class RangeTestRecorder(
         }
     }
 
+    /** Declares beacons missed once they are overdue, so losses appear while nothing arrives at all. */
+    private suspend fun watchOverdue(sessionId: Long, target: MutableStateFlow<Pair<Double, Double>?>) {
+        while (currentCoroutineContext().isActive) {
+            delay(OVERDUE_CHECK_MS)
+            recordMissed(sessionId, tracker.onTick(nowMillis), target.value)
+        }
+    }
+
+    private suspend fun recordMissed(sessionId: Long, gaps: List<BeaconTracker.Gap>, target: Pair<Double, Double>?) {
+        if (gaps.isEmpty()) return
+        insert(missedSamples(sessionId, gaps, target))
+        stateFlow.update { it.copy(missed = it.missed + gaps.size) }
+    }
+
     private suspend fun onBeacon(
         sessionId: Long,
         packet: MeshPacket,
@@ -224,14 +242,21 @@ class RangeTestRecorder(
         target: Pair<Double, Double>?,
     ) {
         val now = nowMillis
+        val update = tracker.onBeacon(beacon, now)
+        recordMissed(sessionId, update.missed, target)
+        update.recovered?.let { seq ->
+            // Declared missed earlier, but it arrived after all (late, via relays or retries).
+            rangeTestDao.deleteMissed(sessionId, seq)
+            stateFlow.update { it.copy(missed = (it.missed - 1).coerceAtLeast(0)) }
+        }
+        // Duplicates (retries) and the sender's end-of-run notice are not beacons to record.
+        if (!update.received) return
+
         val seq = beacon.seq
         val hops = RangeTestSignal.hops(packet)
         val direct = hops == null || hops == 0
         val fix = stateFlow.value.fix?.takeIf { now - it.timeMillis <= FIX_MAX_AGE_MS }
         val distance = fix?.let { f -> target?.let { latLongToMeter(f.latitude, f.longitude, it.first, it.second) } }
-
-        // Relayed beacons advance the sequence too: they arrived, so they are never counted as missed.
-        val missedSamples = missedSamples(sessionId, sequence.advance(seq, now), target)
 
         val received = fix?.let {
             RangeTestSampleEntity(
@@ -249,14 +274,13 @@ class RangeTestRecorder(
                 distanceM = distance,
             )
         }
-        insert(missedSamples + listOfNotNull(received))
+        insert(listOfNotNull(received))
 
         stateFlow.update { s ->
             s.copy(
                 received = s.received + if (direct && received != null) 1 else 0,
                 relayed = s.relayed + if (direct) 0 else 1,
                 unplaced = s.unplaced + if (received == null) 1 else 0,
-                missed = s.missed + missedSamples.size,
                 lastSnr = packet.rx_snr,
                 lastRssi = RangeTestSignal.rssiOrNull(packet),
                 lastHops = hops,
@@ -275,7 +299,7 @@ class RangeTestRecorder(
     /** One [RangeTestSampleKind.MISSED] sample per skipped beacon, at the receiver fix closest to when it was due. */
     private fun missedSamples(
         sessionId: Long,
-        gaps: List<BeaconSequence.Gap>,
+        gaps: List<BeaconTracker.Gap>,
         target: Pair<Double, Double>?,
     ): List<RangeTestSampleEntity> = gaps.mapNotNull { gap ->
         val fix = recentFixes.minByOrNull { kotlin.math.abs(it.timeMillis - gap.dueAt) } ?: return@mapNotNull null
@@ -311,6 +335,7 @@ class RangeTestRecorder(
         const val RADIO_FIX_MAX_AGE_MS = 60_000L
         private const val FIX_MAX_AGE_MS = 120_000L
         private const val TRACK_INTERVAL_MS = 5_000L
+        private const val OVERDUE_CHECK_MS = 1_000L
         private const val TRACK_MIN_MOVE_M = 5.0
         private const val TRACK_MAX_GAP_MS = 30_000L
         private const val MAX_RECENT_FIXES = 720

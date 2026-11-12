@@ -165,8 +165,9 @@ import org.meshtastic.core.database.entity.TracerouteNodePositionEntity
         AutoMigration(from = 66, to = 67),
         AutoMigration(from = 67, to = 68),
         AutoMigration(from = 68, to = 69),
+        AutoMigration(from = 69, to = 70),
     ],
-    version = 69,
+    version = 70,
     exportSchema = true,
 )
 @androidx.room3.ConstructedBy(MeshtasticDatabaseConstructor::class)

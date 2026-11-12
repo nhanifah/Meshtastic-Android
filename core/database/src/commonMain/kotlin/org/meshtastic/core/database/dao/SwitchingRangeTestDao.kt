@@ -25,6 +25,7 @@ import org.meshtastic.core.database.entity.RangeTestSessionEntity
  * Switch-aware [RangeTestDao]: resolves the active database per call so the long-lived range-test recorder and open
  * screens follow a device/DB switch, the same contract as [SwitchingDiscoveryDao].
  */
+@Suppress("TooManyFunctions")
 class SwitchingRangeTestDao(private val dbManager: DatabaseProvider) : RangeTestDao {
     override suspend fun insertSession(session: RangeTestSessionEntity): Long =
         checkNotNull(dbManager.withDb { it.rangeTestDao().insertSession(session) })
@@ -45,6 +46,18 @@ class SwitchingRangeTestDao(private val dbManager: DatabaseProvider) : RangeTest
 
     override suspend fun closeOpenSessions(endedAt: Long) {
         dbManager.withDb { it.rangeTestDao().closeOpenSessions(endedAt) }
+    }
+
+    override suspend fun closeOpenSessionsOfRole(endedAt: Long, role: String) {
+        dbManager.withDb { it.rangeTestDao().closeOpenSessionsOfRole(endedAt, role) }
+    }
+
+    override suspend fun updateSenderCounts(sessionId: Long, sent: Int, confirmed: Int, failed: Int) {
+        dbManager.withDb { it.rangeTestDao().updateSenderCounts(sessionId, sent, confirmed, failed) }
+    }
+
+    override suspend fun deleteMissed(sessionId: Long, seq: Int) {
+        dbManager.withDb { it.rangeTestDao().deleteMissed(sessionId, seq) }
     }
 
     override suspend fun deleteSession(sessionId: Long) {

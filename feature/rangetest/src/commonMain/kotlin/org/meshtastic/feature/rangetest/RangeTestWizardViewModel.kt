@@ -77,8 +77,7 @@ data class RangeTestWizardState(
     val destNum: Int? = null,
     val intervalSec: Int = RangeTestSenderConfig.DEFAULT_INTERVAL_SEC,
     val durationMin: Int? = DEFAULT_DURATION_MIN,
-    val noRelay: Boolean = true,
-    val wantAck: Boolean = false,
+    val mode: RangeTestBeaconMode = RangeTestBeaconMode.MESSAGE,
     val senderNum: Int? = null,
     /** Filters the node lists (destination and sender pickers) by name, short name or node id. */
     val nodeQuery: String = "",
@@ -249,7 +248,7 @@ class RangeTestWizardViewModel(
     }
 
     fun setBroadcast(broadcast: Boolean) = stateFlow.update {
-        it.copy(broadcast = broadcast, wantAck = it.wantAck && !broadcast)
+        it.copy(broadcast = broadcast)
     }
 
     fun selectDestination(num: Int) = stateFlow.update { it.copy(destNum = num, broadcast = false) }
@@ -258,9 +257,7 @@ class RangeTestWizardViewModel(
 
     fun setDuration(minutes: Int?) = stateFlow.update { it.copy(durationMin = minutes) }
 
-    fun setNoRelay(noRelay: Boolean) = stateFlow.update { it.copy(noRelay = noRelay) }
-
-    fun setWantAck(wantAck: Boolean) = stateFlow.update { it.copy(wantAck = wantAck) }
+    fun setMode(mode: RangeTestBeaconMode) = stateFlow.update { it.copy(mode = mode) }
 
     fun selectSender(num: Int) = stateFlow.update { it.copy(senderNum = num, error = null) }
 
@@ -327,8 +324,7 @@ class RangeTestWizardViewModel(
                             destName = dest?.let { num -> nodes.value.firstOrNull { it.num == num }?.name },
                             intervalSec = s.intervalSec,
                             durationMin = s.durationMin,
-                            noRelay = s.noRelay,
-                            wantAck = s.wantAck && dest != null,
+                            mode = s.mode,
                         ),
                     )
                     startedChannel.send(RangeTestRole.SENDER)

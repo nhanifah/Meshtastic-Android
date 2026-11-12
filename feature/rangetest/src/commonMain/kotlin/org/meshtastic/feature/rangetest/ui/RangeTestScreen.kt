@@ -47,9 +47,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jetbrains.compose.resources.stringResource
 import org.meshtastic.core.common.util.DateFormatter
 import org.meshtastic.core.database.entity.RangeTestSessionEntity
+import org.meshtastic.core.database.entity.isSender
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.range_test_delete_session
 import org.meshtastic.core.resources.range_test_history
+import org.meshtastic.core.resources.range_test_history_received_title
+import org.meshtastic.core.resources.range_test_history_sent_counts
+import org.meshtastic.core.resources.range_test_history_sent_title
 import org.meshtastic.core.resources.range_test_hub_intro
 import org.meshtastic.core.resources.range_test_in_progress
 import org.meshtastic.core.resources.range_test_locked_title
@@ -62,6 +66,7 @@ import org.meshtastic.core.resources.range_test_recording_to
 import org.meshtastic.core.resources.range_test_sending_done
 import org.meshtastic.core.resources.range_test_sending_status
 import org.meshtastic.core.resources.range_test_sent
+import org.meshtastic.core.resources.range_test_target_all
 import org.meshtastic.core.ui.icon.CellTower
 import org.meshtastic.core.ui.icon.Delete
 import org.meshtastic.core.ui.icon.Distance
@@ -206,12 +211,14 @@ private fun SessionRow(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // A sender run has no map: it only knows what it sent, so the row shows its counts instead.
+    val clickable = if (session.isSender) Modifier else Modifier.clickable(onClick = onOpen)
     Row(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 4.dp),
+        modifier = modifier.fillMaxWidth().then(clickable).padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(session.targetName, style = MaterialTheme.typography.titleSmall)
+            Text(sessionTitle(session), style = MaterialTheme.typography.titleSmall)
             val ended = session.endedAt
             Text(
                 DateFormatter.formatDateTimeShort(session.startedAt) +
@@ -219,14 +226,36 @@ private fun SessionRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (session.isSender) {
+                Text(
+                    stringResource(
+                        Res.string.range_test_history_sent_counts,
+                        session.beaconsSent ?: 0,
+                        session.beaconsConfirmed ?: 0,
+                        session.beaconsFailed ?: 0,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
-        IconButton(onClick = onOpen) {
-            Icon(MeshtasticIcons.Map, contentDescription = stringResource(Res.string.range_test_open_map))
+        if (!session.isSender) {
+            IconButton(onClick = onOpen) {
+                Icon(MeshtasticIcons.Map, contentDescription = stringResource(Res.string.range_test_open_map))
+            }
         }
-        if (!recording) {
+        if (!recording && session.endedAt != null) {
             IconButton(onClick = onDelete) {
                 Icon(MeshtasticIcons.Delete, contentDescription = stringResource(Res.string.range_test_delete_session))
             }
         }
     }
+}
+
+@Composable
+private fun sessionTitle(session: RangeTestSessionEntity): String = if (session.isSender) {
+    val target = session.targetName.ifBlank { stringResource(Res.string.range_test_target_all) }
+    stringResource(Res.string.range_test_history_sent_title, session.channelName.orEmpty()) + " · " + target
+} else {
+    stringResource(Res.string.range_test_history_received_title, session.targetName)
 }

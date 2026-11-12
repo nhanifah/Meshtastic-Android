@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.Flow
 import org.meshtastic.core.database.entity.RangeTestSampleEntity
 import org.meshtastic.core.database.entity.RangeTestSessionEntity
 
+@Suppress("TooManyFunctions")
 @Dao
 interface RangeTestDao {
     @Insert suspend fun insertSession(session: RangeTestSessionEntity): Long
@@ -42,9 +43,23 @@ interface RangeTestDao {
     @Query("SELECT * FROM range_test_session WHERE id = :sessionId")
     fun getSessionFlow(sessionId: Long): Flow<RangeTestSessionEntity?>
 
-    /** Sessions left open by a process death; closed on the next recorder start. */
+    /** Sessions left open by a process death; closed on the next start and when the app comes back. */
     @Query("UPDATE range_test_session SET ended_at = :endedAt WHERE ended_at IS NULL")
     suspend fun closeOpenSessions(endedAt: Long)
+
+    /** Open sessions of one [role] only, so starting a recording never ends a sender run on the same device. */
+    @Query("UPDATE range_test_session SET ended_at = :endedAt WHERE ended_at IS NULL AND role = :role")
+    suspend fun closeOpenSessionsOfRole(endedAt: Long, role: String)
+
+    @Query(
+        "UPDATE range_test_session SET beacons_sent = :sent, beacons_confirmed = :confirmed, " +
+            "beacons_failed = :failed WHERE id = :sessionId",
+    )
+    suspend fun updateSenderCounts(sessionId: Long, sent: Int, confirmed: Int, failed: Int)
+
+    /** Removes the missed-beacon sample for [seq] once that beacon turned up after all. */
+    @Query("DELETE FROM range_test_sample WHERE session_id = :sessionId AND kind = 'MISSED' AND seq = :seq")
+    suspend fun deleteMissed(sessionId: Long, seq: Int)
 
     @Query("DELETE FROM range_test_session WHERE id = :sessionId")
     suspend fun deleteSession(sessionId: Long)

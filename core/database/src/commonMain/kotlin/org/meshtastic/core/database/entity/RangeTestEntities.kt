@@ -23,9 +23,12 @@ import androidx.room3.Index
 import androidx.room3.PrimaryKey
 
 /**
- * One locked range-test run: a mobile receiver records the Range Test beacons of a single stationary sender
- * ([targetNodeNum]). The target position is captured when the run starts (and refreshed if the target later reports a
- * new one) so distances stay computable even after the node DB forgets the node.
+ * One range-test run, on either side ([role]):
+ * - [RangeTestSessionRole.RECEIVER]: a mobile receiver records the beacons of a single stationary sender
+ *   ([targetNodeNum]). The target position is captured when the run starts (and refreshed if the target later reports a
+ *   new one) so distances stay computable even after the node DB forgets the node.
+ * - [RangeTestSessionRole.SENDER]: the stationary radio's own log of what it sent — [targetNodeNum] is the addressed
+ *   node (or broadcast), with the beacon counts kept up to date while it runs.
  */
 @Entity(tableName = "range_test_session")
 data class RangeTestSessionEntity(
@@ -36,7 +39,29 @@ data class RangeTestSessionEntity(
     @ColumnInfo(name = "target_longitude") val targetLongitude: Double? = null,
     @ColumnInfo(name = "started_at") val startedAt: Long,
     @ColumnInfo(name = "ended_at") val endedAt: Long? = null,
+    @ColumnInfo(name = "role", defaultValue = RangeTestSessionRole.RECEIVER)
+    val role: String = RangeTestSessionRole.RECEIVER,
+    /** Sender runs: the channel the beacons went out on. */
+    @ColumnInfo(name = "channel_name") val channelName: String? = null,
+    /** Sender runs: seconds between beacons. */
+    @ColumnInfo(name = "interval_sec") val intervalSec: Int? = null,
+    /** Sender runs: beacons handed to the radio. */
+    @ColumnInfo(name = "beacons_sent") val beaconsSent: Int? = null,
+    /** Sender runs: beacons confirmed delivered (heard relayed, or acknowledged by the addressed node). */
+    @ColumnInfo(name = "beacons_confirmed") val beaconsConfirmed: Int? = null,
+    /** Sender runs: beacons that could not be sent, or that the radio gave up on without confirmation. */
+    @ColumnInfo(name = "beacons_failed") val beaconsFailed: Int? = null,
 )
+
+/** True for a stationary sender's own log; kept outside the entity so Room does not map it to a column. */
+val RangeTestSessionEntity.isSender: Boolean
+    get() = role == RangeTestSessionRole.SENDER
+
+/** Which side of a range test a [RangeTestSessionEntity] was recorded on. */
+object RangeTestSessionRole {
+    const val RECEIVER = "RECEIVER"
+    const val SENDER = "SENDER"
+}
 
 /** What a [RangeTestSampleEntity] row records. */
 object RangeTestSampleKind {
