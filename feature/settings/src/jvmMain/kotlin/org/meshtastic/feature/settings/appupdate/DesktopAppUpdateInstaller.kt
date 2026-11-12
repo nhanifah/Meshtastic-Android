@@ -46,7 +46,7 @@ class DesktopAppUpdateInstaller(private val httpClient: HttpClient) : AppUpdateI
         return DownloadedUpdate(file.absolutePath, asset)
     }
 
-    override fun install(update: DownloadedUpdate): AppUpdateInstallResult {
+    override suspend fun install(update: DownloadedUpdate): AppUpdateInstallResult {
         if (!isWindows) {
             openPage(AppUpdateConfig.RELEASES_PAGE)
             return AppUpdateInstallResult.OPENED_IN_BROWSER

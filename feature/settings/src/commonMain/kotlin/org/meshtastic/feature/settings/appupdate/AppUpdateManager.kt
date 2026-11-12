@@ -54,7 +54,7 @@ interface AppUpdateInstaller {
     suspend fun download(asset: AppUpdateAsset, onProgress: (Float?) -> Unit): DownloadedUpdate
 
     /** Hands [update] to the system installer. On desktop this may quit the app so files can be replaced. */
-    fun install(update: DownloadedUpdate): AppUpdateInstallResult
+    suspend fun install(update: DownloadedUpdate): AppUpdateInstallResult
 
     /** Opens [url] (the release page) in the browser. */
     fun openPage(url: String)
@@ -131,7 +131,7 @@ class AppUpdateManager(
     }
 
     /** Starts the installer; the state stays ready so the user can try again after granting permission. */
-    fun install(): AppUpdateInstallResult? {
+    suspend fun install(): AppUpdateInstallResult? {
         val ready = stateFlow.value as? AppUpdateState.ReadyToInstall ?: return null
         return runCatching { installer.install(ready.update) }
             .onFailure { e ->

@@ -17,9 +17,11 @@
 package org.meshtastic.feature.settings.appupdate
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import org.koin.core.annotation.KoinViewModel
 
 /** Backs the App update screen; the work itself lives in the application-scoped [AppUpdateManager]. */
@@ -46,7 +48,7 @@ class AppUpdateViewModel(private val manager: AppUpdateManager) : ViewModel() {
     fun download() = manager.download()
 
     fun install() {
-        lastInstallFlow.value = manager.install()
+        viewModelScope.launch { lastInstallFlow.value = manager.install() }
     }
 
     fun openReleasePage(release: AppUpdateRelease?) = manager.openReleasePage(release)
