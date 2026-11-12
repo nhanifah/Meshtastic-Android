@@ -1742,6 +1742,7 @@ range_test_channel_intro_receiver
 range_test_channel_intro_sender
 range_test_channel_joined
 range_test_channel_label
+range_test_clear_search
 range_test_config
 range_test_delete_session
 range_test_done
@@ -1785,6 +1786,7 @@ range_test_missed
 range_test_new_test
 range_test_next
 range_test_no_extra_channels
+range_test_no_node_match
 range_test_no_relay
 range_test_no_relay_desc
 range_test_no_sessions
@@ -1810,6 +1812,7 @@ range_test_role_sender
 range_test_role_sender_desc
 range_test_route
 range_test_scan_qr
+range_test_search_nodes
 range_test_seconds
 range_test_seconds_ago
 range_test_sender_no_position

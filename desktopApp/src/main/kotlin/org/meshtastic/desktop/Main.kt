@@ -30,6 +30,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ApplicationScope
+import androidx.compose.ui.window.LocalWindowExceptionHandlerFactory
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
@@ -169,7 +171,7 @@ private fun svgPainterResource(path: String, density: Density): Painter = rememb
     bytes.decodeToSvgPainter(density)
 }
 
-@OptIn(ExperimentalCoilApi::class)
+@OptIn(ExperimentalCoilApi::class, ExperimentalComposeUiApi::class)
 fun main(args: Array<String>) {
     installQuitHandler()
     // exitProcessOnExit = false is what makes the shutdown block below reachable at all: with the default (true),
@@ -196,7 +198,10 @@ fun main(args: Array<String>) {
         MeshServiceLifecycle()
         // Desktop has no WorkManager, so the hourly mesh log cleanup lives as long as the application composition.
         LaunchedEffect(Unit) { withContext(ioDispatcher) { koinApp.koin.get<MeshLogCleanup>().runHourly() } }
-        ThemeAndLocaleProvider(uiViewModel)
+        // Log uncaught UI exceptions with a report on disk instead of Compose's bare "Unknown error" box.
+        CompositionLocalProvider(LocalWindowExceptionHandlerFactory provides DesktopCrashReporter) {
+            ThemeAndLocaleProvider(uiViewModel)
+        }
     }
 
     // Runs on the main thread with the UI already gone. The native sender must be closed before the container goes,

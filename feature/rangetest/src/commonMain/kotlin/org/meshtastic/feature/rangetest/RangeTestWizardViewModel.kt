@@ -80,6 +80,8 @@ data class RangeTestWizardState(
     val noRelay: Boolean = true,
     val wantAck: Boolean = false,
     val senderNum: Int? = null,
+    /** Filters the node lists (destination and sender pickers) by name, short name or node id. */
+    val nodeQuery: String = "",
     val busy: Boolean = false,
     val error: RangeTestWizardError? = null,
 ) {
@@ -131,7 +133,25 @@ data class RangeTestDetectedSender(
 )
 
 /** Another node of the mesh, for picking a single beacon destination. */
-data class RangeTestNodeOption(val num: Int, val name: String, val shortName: String)
+data class RangeTestNodeOption(val num: Int, val name: String, val shortName: String) {
+    /** Node id as shown elsewhere in the app, e.g. `!a1b2c3d4`. */
+    val id: String
+        get() = "!" + num.toUInt().toString(HEX_RADIX).padStart(NODE_ID_DIGITS, '0')
+
+    /** True when [query] appears in the long name, short name or node id (case-insensitive). */
+    fun matches(query: String): Boolean {
+        val q = query.trim()
+        return q.isEmpty() ||
+            name.contains(q, ignoreCase = true) ||
+            shortName.contains(q, ignoreCase = true) ||
+            id.contains(q.removePrefix("!"), ignoreCase = true)
+    }
+
+    private companion object {
+        const val HEX_RADIX = 16
+        const val NODE_ID_DIGITS = 8
+    }
+}
 
 private data class HeardBeacon(val at: Long, val snr: Float, val rssi: Int?)
 
@@ -243,6 +263,8 @@ class RangeTestWizardViewModel(
     fun setWantAck(wantAck: Boolean) = stateFlow.update { it.copy(wantAck = wantAck) }
 
     fun selectSender(num: Int) = stateFlow.update { it.copy(senderNum = num, error = null) }
+
+    fun setNodeQuery(query: String) = stateFlow.update { it.copy(nodeQuery = query) }
 
     /** Joins the channel in a scanned or pasted code (receiver). */
     fun joinFromCode(code: String) = runBusy {

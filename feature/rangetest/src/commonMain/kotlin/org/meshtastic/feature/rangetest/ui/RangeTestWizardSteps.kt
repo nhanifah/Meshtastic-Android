@@ -42,6 +42,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -68,6 +69,7 @@ import org.meshtastic.core.resources.range_test_channel_intro_receiver
 import org.meshtastic.core.resources.range_test_channel_intro_sender
 import org.meshtastic.core.resources.range_test_channel_joined
 import org.meshtastic.core.resources.range_test_channel_label
+import org.meshtastic.core.resources.range_test_clear_search
 import org.meshtastic.core.resources.range_test_duration
 import org.meshtastic.core.resources.range_test_heard_ago
 import org.meshtastic.core.resources.range_test_interval
@@ -77,6 +79,7 @@ import org.meshtastic.core.resources.range_test_location_intro
 import org.meshtastic.core.resources.range_test_location_phone_ok
 import org.meshtastic.core.resources.range_test_minutes
 import org.meshtastic.core.resources.range_test_no_extra_channels
+import org.meshtastic.core.resources.range_test_no_node_match
 import org.meshtastic.core.resources.range_test_no_relay
 import org.meshtastic.core.resources.range_test_no_relay_desc
 import org.meshtastic.core.resources.range_test_paste_code
@@ -91,6 +94,7 @@ import org.meshtastic.core.resources.range_test_role_receiver_desc
 import org.meshtastic.core.resources.range_test_role_sender
 import org.meshtastic.core.resources.range_test_role_sender_desc
 import org.meshtastic.core.resources.range_test_scan_qr
+import org.meshtastic.core.resources.range_test_search_nodes
 import org.meshtastic.core.resources.range_test_seconds
 import org.meshtastic.core.resources.range_test_sender_no_position
 import org.meshtastic.core.resources.range_test_share_intro
@@ -113,9 +117,11 @@ import org.meshtastic.core.resources.range_test_want_ack_desc
 import org.meshtastic.core.ui.icon.CellTower
 import org.meshtastic.core.ui.icon.Channel
 import org.meshtastic.core.ui.icon.CheckCircle
+import org.meshtastic.core.ui.icon.Close
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.NearMe
 import org.meshtastic.core.ui.icon.QrCodeScanner
+import org.meshtastic.core.ui.icon.Search
 import org.meshtastic.core.ui.util.LocalBarcodeScannerProvider
 import org.meshtastic.core.ui.util.LocalBarcodeScannerSupported
 import org.meshtastic.core.ui.util.PermissionStatus
@@ -155,6 +161,7 @@ internal data class WizardActions(
     val setNoRelay: (Boolean) -> Unit,
     val setWantAck: (Boolean) -> Unit,
     val selectSender: (Int) -> Unit,
+    val setNodeQuery: (String) -> Unit,
 )
 
 internal fun LazyListScope.wizardStep(
@@ -372,7 +379,10 @@ private fun LazyListScope.targetStep(
         )
     }
     if (!state.broadcast) {
-        items(data.nodes, key = { "dest-${it.num}" }) { node ->
+        item("dest-search") { NodeSearchField(state.nodeQuery, actions.setNodeQuery, modifier) }
+        val matches = data.nodes.filter { it.matches(state.nodeQuery) }
+        if (matches.isEmpty()) item("dest-none") { Hint(stringResource(Res.string.range_test_no_node_match), modifier) }
+        items(matches, key = { "dest-${it.num}" }) { node ->
             RadioRow(
                 title = node.name,
                 subtitle = node.shortName,
@@ -464,7 +474,10 @@ private fun LazyListScope.pickSenderStep(
         )
     }
     item("pick-all-title") { SectionLabel(stringResource(Res.string.range_test_pick_from_nodes), modifier) }
-    items(data.nodes.filter { n -> data.detected.none { it.num == n.num } }, key = { "node-${it.num}" }) { node ->
+    item("pick-search") { NodeSearchField(state.nodeQuery, actions.setNodeQuery, modifier) }
+    val others = data.nodes.filter { n -> data.detected.none { it.num == n.num } && n.matches(state.nodeQuery) }
+    if (others.isEmpty()) item("pick-none") { Hint(stringResource(Res.string.range_test_no_node_match), modifier) }
+    items(others, key = { "node-${it.num}" }) { node ->
         RadioRow(
             title = node.name,
             subtitle = node.shortName,
@@ -553,6 +566,26 @@ private fun SenderSummary(state: RangeTestWizardState, data: WizardData) =
     }
 
 // ---- Building blocks --------------------------------------------------------------------------------------------
+
+/** Filters a node list by name, short name or node id; the clear button empties it. */
+@Composable
+private fun NodeSearchField(query: String, onQueryChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier,
+        singleLine = true,
+        placeholder = { Text(stringResource(Res.string.range_test_search_nodes)) },
+        leadingIcon = { Icon(MeshtasticIcons.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(MeshtasticIcons.Close, contentDescription = stringResource(Res.string.range_test_clear_search))
+                }
+            }
+        },
+    )
+}
 
 /** A large selectable card: icon, title and a one-line explanation. */
 @Composable

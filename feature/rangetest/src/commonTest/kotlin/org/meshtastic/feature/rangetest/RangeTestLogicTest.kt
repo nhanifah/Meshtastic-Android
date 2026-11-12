@@ -167,6 +167,17 @@ class RangeTestLogicTest {
     }
 
     @Test
+    fun nodeSearchMatchesNameShortNameAndId() {
+        val node = RangeTestNodeOption(num = 0x1a2b3c4d, name = "YG1CIC B-91", shortName = "B91")
+        assertTrue(node.matches(""))
+        assertTrue(node.matches("yg1cic"))
+        assertTrue(node.matches("b91"))
+        assertTrue(node.matches("!1a2b"))
+        assertTrue(node.matches("3c4d"))
+        assertTrue(!node.matches("base station"))
+    }
+
+    @Test
     fun radioFixWinsOnlyWhileFresh() {
         val now = 1_000_000_000L
         val phone = PhoneLocationState(true, true, PhoneLocation(1.0, 2.0, null, now, null, 5f, null, null))

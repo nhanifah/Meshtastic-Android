@@ -111,6 +111,7 @@ fun RangeTestWizardScreen(
                 setNoRelay = viewModel::setNoRelay,
                 setWantAck = viewModel::setWantAck,
                 selectSender = viewModel::selectSender,
+                setNodeQuery = viewModel::setNodeQuery,
             )
         }
 
