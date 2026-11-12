@@ -1,0 +1,50 @@
+name: Windows desktop build (range test)
+
+# Builds the Windows installers (MSI + EXE) of the desktop app for the range-test branch.
+# Unsigned: no Azure Trusted Signing secrets on this fork, so SmartScreen will warn on install.
+on:
+  push:
+    branches: [build/windows-desktop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: 'blob:none'
+          submodules: true
+
+      - name: Gradle Setup
+        uses: ./.github/actions/gradle-setup
+        with:
+          cache_read_only: 'false'
+
+      # Same flags as the release workflow's Windows leg: CMP's WiX packaging needs isolated
+      # projects and the configuration cache off; -P flags are quoted for PowerShell.
+      - name: Package Windows installers
+        run: >
+          ./gradlew :desktopApp:packageReleaseDistributionForCurrentOS
+          '-PaboutLibraries.release=true' '-Pdesktop.release=true' --no-daemon
+          --no-isolated-projects --no-configuration-cache
+
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: meshtastic-desktop-windows
+          path: |
+            desktopApp/build/compose/binaries/main-release/*/*.msi
+            desktopApp/build/compose/binaries/main-release/*/*.exe
+          retention-days: 7
+          if-no-files-found: error
