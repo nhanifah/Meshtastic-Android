@@ -423,13 +423,6 @@ fun EntryProviderScope<NavKey>.settingsGraph(
         )
     }
 
-    entry<SettingsRoute.AppUpdate> {
-        AppUpdateScreen(
-            viewModel = koinViewModel<AppUpdateViewModel>(),
-            onBack = dropUnlessResumed { backStack.removeLastOrNull() },
-        )
-    }
-
     entry<SettingsRoute.DebugPanel> {
         val viewModel: DebugViewModel = koinViewModel()
         DebugScreen(viewModel = viewModel, onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() })
