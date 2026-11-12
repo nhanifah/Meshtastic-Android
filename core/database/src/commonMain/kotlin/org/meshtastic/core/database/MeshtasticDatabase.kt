@@ -42,6 +42,7 @@ import org.meshtastic.core.database.dao.MqttRootsDao
 import org.meshtastic.core.database.dao.NodeInfoDao
 import org.meshtastic.core.database.dao.PacketDao
 import org.meshtastic.core.database.dao.QuickChatActionDao
+import org.meshtastic.core.database.dao.RangeTestDao
 import org.meshtastic.core.database.dao.TracerouteNodePositionDao
 import org.meshtastic.core.database.entity.BootloaderOtaQuirksCacheEntity
 import org.meshtastic.core.database.entity.ChannelSetEntity
@@ -63,6 +64,8 @@ import org.meshtastic.core.database.entity.NodeEntity
 import org.meshtastic.core.database.entity.Packet
 import org.meshtastic.core.database.entity.PacketFts
 import org.meshtastic.core.database.entity.QuickChatAction
+import org.meshtastic.core.database.entity.RangeTestSampleEntity
+import org.meshtastic.core.database.entity.RangeTestSessionEntity
 import org.meshtastic.core.database.entity.ReactionEntity
 import org.meshtastic.core.database.entity.TracerouteNodePositionEntity
 
@@ -91,6 +94,8 @@ import org.meshtastic.core.database.entity.TracerouteNodePositionEntity
         BootloaderOtaQuirksCacheEntity::class,
         MaintenanceUf2CacheEntity::class,
         MqttRootsCacheEntity::class,
+        RangeTestSessionEntity::class,
+        RangeTestSampleEntity::class,
     ],
     autoMigrations =
     [
@@ -159,8 +164,9 @@ import org.meshtastic.core.database.entity.TracerouteNodePositionEntity
         AutoMigration(from = 65, to = 66),
         AutoMigration(from = 66, to = 67),
         AutoMigration(from = 67, to = 68),
+        AutoMigration(from = 68, to = 69),
     ],
-    version = 68,
+    version = 69,
     exportSchema = true,
 )
 @androidx.room3.ConstructedBy(MeshtasticDatabaseConstructor::class)
@@ -197,6 +203,8 @@ abstract class MeshtasticDatabase : RoomDatabase() {
     abstract fun maintenanceUf2Dao(): MaintenanceUf2Dao
 
     abstract fun mqttRootsDao(): MqttRootsDao
+
+    abstract fun rangeTestDao(): RangeTestDao
 
     companion object {
         /**

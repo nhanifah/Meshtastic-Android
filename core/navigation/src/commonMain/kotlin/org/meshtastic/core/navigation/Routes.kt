@@ -247,3 +247,11 @@ sealed interface DiscoveryRoute : Route {
 
     @Serializable data class DiscoveryMap(val sessionId: Long) : DiscoveryRoute
 }
+
+@Serializable
+sealed interface RangeTestRoute : Route {
+    /** Pick the stationary sender, start/stop recording, and browse past sessions. */
+    @Serializable data object RangeTestHome : RangeTestRoute
+
+    @Serializable data class RangeTestMap(val sessionId: Long) : RangeTestRoute
+}

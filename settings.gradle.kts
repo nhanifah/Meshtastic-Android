@@ -117,6 +117,7 @@ include(
     ":feature:node",
     ":feature:settings",
     ":feature:discovery",
+    ":feature:rangetest",
     ":feature:docs",
     ":feature:firmware",
     ":feature:wifi-provision",

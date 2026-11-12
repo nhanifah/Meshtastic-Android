@@ -409,6 +409,7 @@ dependencies {
     implementation(projects.feature.map)
     implementation(projects.feature.coverage)
     implementation(projects.feature.discovery)
+    implementation(projects.feature.rangetest)
     implementation(projects.feature.firmware)
     implementation(projects.feature.wifiProvision)
     implementation(projects.feature.intro)

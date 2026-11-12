@@ -58,6 +58,7 @@ import org.meshtastic.feature.firmware.navigation.firmwareGraph
 import org.meshtastic.feature.map.navigation.mapGraph
 import org.meshtastic.feature.messaging.navigation.contactsGraph
 import org.meshtastic.feature.node.navigation.nodesGraph
+import org.meshtastic.feature.rangetest.navigation.rangeTestGraph
 import org.meshtastic.feature.settings.lockdown.LockdownDialog
 import org.meshtastic.feature.settings.navigation.rememberSettingsRadioConfigViewModelProvider
 import org.meshtastic.feature.settings.navigation.settingsGraph
@@ -114,6 +115,7 @@ fun MainScreen() {
                     channelsGraph(backStack)
                     connectionsGraph(backStack)
                     discoveryGraph(backStack)
+                    rangeTestGraph(backStack)
                     settingsGraph(backStack, settingsRadioConfigViewModelProvider)
                     docsEntries(backStack)
                     firmwareGraph(backStack)

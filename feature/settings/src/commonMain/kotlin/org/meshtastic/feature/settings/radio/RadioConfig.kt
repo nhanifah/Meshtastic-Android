@@ -31,6 +31,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 import org.meshtastic.core.navigation.DiscoveryRoute
 import org.meshtastic.core.navigation.FirmwareRoute
+import org.meshtastic.core.navigation.RangeTestRoute
 import org.meshtastic.core.navigation.Route
 import org.meshtastic.core.navigation.SettingsRoute
 import org.meshtastic.core.resources.Res
@@ -58,6 +59,7 @@ import org.meshtastic.core.resources.import_configuration
 import org.meshtastic.core.resources.message_device_managed
 import org.meshtastic.core.resources.module_settings
 import org.meshtastic.core.resources.nodedb_reset
+import org.meshtastic.core.resources.range_test_locked_title
 import org.meshtastic.core.resources.reboot
 import org.meshtastic.core.resources.reboot_into_dfu
 import org.meshtastic.core.resources.restore_app_database
@@ -70,6 +72,7 @@ import org.meshtastic.core.ui.icon.AppSettingsAlt
 import org.meshtastic.core.ui.icon.BugReport
 import org.meshtastic.core.ui.icon.ChevronRight
 import org.meshtastic.core.ui.icon.CleaningServices
+import org.meshtastic.core.ui.icon.Distance
 import org.meshtastic.core.ui.icon.Download
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.PermScanWifi
@@ -272,6 +275,13 @@ private fun AdvancedSection(isManaged: Boolean, isOtaCapable: Boolean, enabled: 
             leadingIcon = MeshtasticIcons.PermScanWifi,
             enabled = enabled,
             onClick = { onNavigate(DiscoveryRoute.DiscoveryGraph) },
+        )
+
+        ListItem(
+            text = stringResource(Res.string.range_test_locked_title),
+            leadingIcon = MeshtasticIcons.Distance,
+            enabled = enabled,
+            onClick = { onNavigate(RangeTestRoute.RangeTestHome) },
         )
 
         // Always enabled so logs stay reachable with no radio attached. Anything on this route that

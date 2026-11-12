@@ -108,6 +108,7 @@ import org.meshtastic.core.ui.util.LocalInlineMapProvider
 import org.meshtastic.core.ui.util.LocalMapMainScreenProvider
 import org.meshtastic.core.ui.util.LocalMapViewProvider
 import org.meshtastic.core.ui.util.LocalNodeTrackMapProvider
+import org.meshtastic.core.ui.util.LocalRangeTestMapProvider
 import org.meshtastic.core.ui.util.LocalSitePlannerAvailable
 import org.meshtastic.core.ui.util.LocalTracerouteMapOverlayInsetsProvider
 import org.meshtastic.core.ui.util.LocalTracerouteMapProvider
@@ -131,6 +132,7 @@ import org.meshtastic.feature.map.SharedMapViewModel
 import org.meshtastic.feature.map.maplibre.MapLibreDiscoveryMap
 import org.meshtastic.feature.map.maplibre.MapLibreInlineMap
 import org.meshtastic.feature.map.maplibre.MapLibreNodeTrackMap
+import org.meshtastic.feature.map.maplibre.MapLibreRangeTestMap
 import java.awt.Desktop
 import java.util.Locale
 import kotlin.system.exitProcess
@@ -503,6 +505,10 @@ private fun ApplicationScope.MeshtasticWindow(
                 LocalDiscoveryMapProvider provides
                     { userLatitude, userLongitude, nodes, modifier ->
                         MapLibreDiscoveryMap(userLatitude, userLongitude, nodes, modifier)
+                    },
+                LocalRangeTestMapProvider provides
+                    { data, onCellClick, modifier ->
+                        MapLibreRangeTestMap(data, onCellClick, modifier)
                     },
                 LocalTracerouteMapProvider provides
                     { overlay, nodePositions, onMappableCountChanged, modifier ->

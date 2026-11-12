@@ -23,7 +23,9 @@ import org.koin.core.annotation.Single
 import org.meshtastic.core.database.DatabaseProvider
 import org.meshtastic.core.database.createDatabaseDataStore
 import org.meshtastic.core.database.dao.DiscoveryDao
+import org.meshtastic.core.database.dao.RangeTestDao
 import org.meshtastic.core.database.dao.SwitchingDiscoveryDao
+import org.meshtastic.core.database.dao.SwitchingRangeTestDao
 
 @Module
 @ComponentScan("org.meshtastic.core.database")
@@ -39,4 +41,8 @@ class CoreDatabaseModule {
      */
     @Factory
     fun provideDiscoveryDao(databaseProvider: DatabaseProvider): DiscoveryDao = SwitchingDiscoveryDao(databaseProvider)
+
+    /** Switch-aware for the same reason as [provideDiscoveryDao]: the range-test recorder outlives DB switches. */
+    @Factory
+    fun provideRangeTestDao(databaseProvider: DatabaseProvider): RangeTestDao = SwitchingRangeTestDao(databaseProvider)
 }

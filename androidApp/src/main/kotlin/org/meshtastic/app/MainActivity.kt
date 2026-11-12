@@ -97,6 +97,7 @@ import org.meshtastic.core.ui.util.LocalNfcScannerProvider
 import org.meshtastic.core.ui.util.LocalNfcScannerSupported
 import org.meshtastic.core.ui.util.LocalNfcWriterProvider
 import org.meshtastic.core.ui.util.LocalNodeTrackMapProvider
+import org.meshtastic.core.ui.util.LocalRangeTestMapProvider
 import org.meshtastic.core.ui.util.LocalSitePlannerAvailable
 import org.meshtastic.core.ui.util.LocalTracerouteMapOverlayInsetsProvider
 import org.meshtastic.core.ui.util.LocalTracerouteMapProvider
@@ -288,6 +289,10 @@ open class MainActivity : AppCompatActivity() {
             LocalDiscoveryMapProvider provides
                 { userLat, userLon, nodes, modifier ->
                     org.meshtastic.app.map.discovery.DiscoveryMap(userLat, userLon, nodes, modifier)
+                },
+            LocalRangeTestMapProvider provides
+                { data, onCellClick, modifier ->
+                    org.meshtastic.app.map.rangetest.RangeTestMap(data, onCellClick, modifier)
                 },
             LocalMapMainScreenProvider provides
                 { onClickNodeChip, navigateToNodeDetails, waypointId, sitePlannerNodeNum, onOpenMeshHud ->
