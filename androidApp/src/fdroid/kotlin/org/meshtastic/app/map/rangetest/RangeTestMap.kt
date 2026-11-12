@@ -24,10 +24,8 @@ import org.meshtastic.feature.map.maplibre.MapLibreRangeTestMap
 
 /** Flavor-unified entry point for the range-test map. MapLibre implementation. */
 @Composable
-fun RangeTestMap(data: RangeTestMapData, onCellClick: (String) -> Unit, modifier: Modifier = Modifier) =
-    MapLibreRangeTestMap(
-        data = data,
-        onCellClick = onCellClick,
-        modifier = modifier,
-        customBasemaps = { androidCustomRasterBasemaps() },
-    )
+fun RangeTestMap(data: RangeTestMapData, modifier: Modifier = Modifier) = MapLibreRangeTestMap(
+    data = data,
+    modifier = modifier,
+    customBasemaps = { androidCustomRasterBasemaps() },
+)

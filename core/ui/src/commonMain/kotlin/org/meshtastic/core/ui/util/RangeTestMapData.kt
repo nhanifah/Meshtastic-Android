@@ -16,63 +16,54 @@
  */
 package org.meshtastic.core.ui.util
 
-import androidx.compose.runtime.Immutable
+/** A WGS84 coordinate in the range-test map model. */
+data class RangeTestLatLng(val latitude: Double, val longitude: Double)
 
-/** How the range-test map presents the recorded samples. */
-enum class RangeTestMapMode {
-    /** Square cells colored by the cell's average signal — the view for finding weak spots. */
-    GRID,
-
-    /** A smooth heatmap whose intensity is signal *weakness*, so hot areas are weak areas. */
-    HEATMAP,
-
-    /** Every received / missed beacon as its own dot. */
-    POINTS,
-}
-
-@Immutable data class RangeTestLatLng(val latitude: Double, val longitude: Double)
-
-/** One aggregated grid cell; [argb] is the precomputed fill (alpha included). */
-@Immutable
-data class RangeTestMapCell(
-    val id: String,
-    val south: Double,
-    val west: Double,
-    val north: Double,
-    val east: Double,
-    val argb: Int,
-)
-
-/** One beacon dot. [missed] dots are drawn hollow/dark; [argb] is the signal color for received ones. */
-@Immutable data class RangeTestMapPoint(val latitude: Double, val longitude: Double, val argb: Int, val missed: Boolean)
-
-/** One heatmap contribution; [weight] is in 0..1 where 1 is the weakest signal (or a missed beacon). */
-@Immutable data class RangeTestHeatPoint(val latitude: Double, val longitude: Double, val weight: Double)
-
-@Immutable data class RangeTestMapTarget(val latitude: Double, val longitude: Double, val label: String)
+/** A labelled pin: the stationary sender or the receiver's latest position. */
+data class RangeTestMapPin(val latitude: Double, val longitude: Double, val label: String)
 
 /**
- * Everything a platform map needs to draw a range-test session, already bucketed and colored in common code so each map
- * engine (Google Maps, MapLibre) stays a thin renderer.
+ * The signal heatmap as a ready-to-drape image: [pixels] holds [width] × [height] ARGB values, row by row from the
+ * north-west corner, covering the box [south]..[north] × [west]..[east]. Colour is the interpolated signal level, and
+ * pixels far from any measurement are fully transparent.
+ *
+ * [version] changes whenever the content does, so renderers can rebuild their bitmap only when needed (an [IntArray]
+ * has no value equality).
  */
-@Immutable
-data class RangeTestMapData(
-    val mode: RangeTestMapMode = RangeTestMapMode.GRID,
-    val target: RangeTestMapTarget? = null,
-    val ringsMeters: List<Double> = emptyList(),
-    val cells: List<RangeTestMapCell> = emptyList(),
-    val points: List<RangeTestMapPoint> = emptyList(),
-    val heat: List<RangeTestHeatPoint> = emptyList(),
-    val track: List<RangeTestLatLng> = emptyList(),
-    /** The receiver's latest position while recording, null for a finished session. */
-    val receiver: RangeTestLatLng? = null,
+class RangeTestHeatRaster(
+    val width: Int,
+    val height: Int,
+    val pixels: IntArray,
+    val north: Double,
+    val south: Double,
+    val east: Double,
+    val west: Double,
+    val version: Long,
 ) {
-    /** Every coordinate worth framing, for the initial camera fit. */
+    override fun equals(other: Any?): Boolean = other is RangeTestHeatRaster && other.version == version
+
+    override fun hashCode(): Int = version.hashCode()
+}
+
+/**
+ * Everything a range-test map draws: the signal heatmap, the optional route, and two pins. No circles or rings: the
+ * heatmap alone shows where the signal is strong or weak.
+ */
+data class RangeTestMapData(
+    val heat: RangeTestHeatRaster? = null,
+    val track: List<RangeTestLatLng> = emptyList(),
+    val sender: RangeTestMapPin? = null,
+    val receiver: RangeTestMapPin? = null,
+) {
+    /** Points the camera should frame on first show. */
     val boundsPoints: List<RangeTestLatLng>
         get() = buildList {
-            target?.let { add(RangeTestLatLng(it.latitude, it.longitude)) }
+            heat?.let {
+                add(RangeTestLatLng(it.south, it.west))
+                add(RangeTestLatLng(it.north, it.east))
+            }
             addAll(track)
-            points.forEach { add(RangeTestLatLng(it.latitude, it.longitude)) }
-            receiver?.let { add(it) }
+            sender?.let { add(RangeTestLatLng(it.latitude, it.longitude)) }
+            receiver?.let { add(RangeTestLatLng(it.latitude, it.longitude)) }
         }
 }

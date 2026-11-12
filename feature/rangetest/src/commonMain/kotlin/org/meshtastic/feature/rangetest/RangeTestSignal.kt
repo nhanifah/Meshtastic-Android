@@ -55,6 +55,9 @@ object RangeTestSignal {
     private val SNR_THRESHOLDS = floatArrayOf(SNR_STRONG, SNR_GOOD, SNR_FAIR, SNR_WEAK)
     private val RSSI_THRESHOLDS = floatArrayOf(RSSI_STRONG, RSSI_GOOD, RSSI_FAIR, RSSI_WEAK)
 
+    private const val BAND_COUNT = 5f
+    private const val WEAK_INDEX = 3
+
     private val SEQ_REGEX = Regex("""seq\s+(\d+)""", RegexOption.IGNORE_CASE)
 
     fun band(metric: RangeTestMetric, value: Float): SignalBand {
@@ -68,14 +71,26 @@ object RangeTestSignal {
         return if (index == -1) SignalBand.VERY_WEAK else SignalBand.entries[index]
     }
 
-    /** 0 for a reading at or above the strong threshold, 1 at or below the floor — the heatmap's weight. */
-    fun weakness(metric: RangeTestMetric, value: Float): Double {
-        val (top, floor) =
+    /**
+     * Where a reading sits on the 0–1 strength scale the heatmap colours by: each band takes a fifth of the scale, so
+     * 0.0–0.2 is very weak, 0.8–1.0 strong. Readings below the floor clamp to 0.
+     */
+    @Suppress("ReturnCount")
+    fun strength(metric: RangeTestMetric, value: Float): Float {
+        val (thresholds, floor) =
             when (metric) {
-                RangeTestMetric.SNR -> SNR_STRONG to SNR_FLOOR
-                RangeTestMetric.RSSI -> RSSI_STRONG to RSSI_FLOOR
+                RangeTestMetric.SNR -> SNR_THRESHOLDS to SNR_FLOOR
+                RangeTestMetric.RSSI -> RSSI_THRESHOLDS to RSSI_FLOOR
             }
-        return ((top - value) / (top - floor)).toDouble().coerceIn(0.0, 1.0)
+        // Ascending edges: floor, weak, fair, good, strong, and one band-width above strong.
+        val strong = thresholds[0]
+        val good = thresholds[1]
+        val edges = floatArrayOf(floor, thresholds[WEAK_INDEX], thresholds[2], good, strong, strong + (strong - good))
+        if (value <= edges[0]) return 0f
+        for (i in 0 until edges.size - 1) {
+            if (value < edges[i + 1]) return (i + (value - edges[i]) / (edges[i + 1] - edges[i])) / BAND_COUNT
+        }
+        return 1f
     }
 
     /** The sequence number of a firmware Range Test beacon ("seq 42"), or null for any other payload. */

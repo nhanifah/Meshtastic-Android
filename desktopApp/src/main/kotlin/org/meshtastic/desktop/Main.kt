@@ -506,10 +506,7 @@ private fun ApplicationScope.MeshtasticWindow(
                     { userLatitude, userLongitude, nodes, modifier ->
                         MapLibreDiscoveryMap(userLatitude, userLongitude, nodes, modifier)
                     },
-                LocalRangeTestMapProvider provides
-                    { data, onCellClick, modifier ->
-                        MapLibreRangeTestMap(data, onCellClick, modifier)
-                    },
+                LocalRangeTestMapProvider provides { data, modifier -> MapLibreRangeTestMap(data, modifier) },
                 LocalTracerouteMapProvider provides
                     { overlay, nodePositions, onMappableCountChanged, modifier ->
                         DesktopTracerouteMap(overlay, nodePositions, onMappableCountChanged, modifier)

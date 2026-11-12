@@ -19,24 +19,28 @@ package org.meshtastic.feature.rangetest.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +60,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -65,54 +70,54 @@ import org.jetbrains.compose.resources.stringResource
 import org.meshtastic.core.common.util.CommonUri
 import org.meshtastic.core.common.util.MeasurementSystem
 import org.meshtastic.core.resources.Res
-import org.meshtastic.core.resources.range_test_avg_min
-import org.meshtastic.core.resources.range_test_band_fair
-import org.meshtastic.core.resources.range_test_band_good
 import org.meshtastic.core.resources.range_test_band_strong
 import org.meshtastic.core.resources.range_test_band_very_weak
-import org.meshtastic.core.resources.range_test_band_weak
 import org.meshtastic.core.resources.range_test_by_distance
-import org.meshtastic.core.resources.range_test_cell_counts
-import org.meshtastic.core.resources.range_test_cell_size
 import org.meshtastic.core.resources.range_test_export_csv
 import org.meshtastic.core.resources.range_test_export_done
 import org.meshtastic.core.resources.range_test_export_failed
 import org.meshtastic.core.resources.range_test_export_kml
-import org.meshtastic.core.resources.range_test_heat_hint
 import org.meshtastic.core.resources.range_test_include_relayed
+import org.meshtastic.core.resources.range_test_legend_title
 import org.meshtastic.core.resources.range_test_map_unavailable
 import org.meshtastic.core.resources.range_test_max_distance
 import org.meshtastic.core.resources.range_test_missed
-import org.meshtastic.core.resources.range_test_mode_grid
-import org.meshtastic.core.resources.range_test_mode_heatmap
-import org.meshtastic.core.resources.range_test_mode_points
+import org.meshtastic.core.resources.range_test_received
 import org.meshtastic.core.resources.range_test_relayed
+import org.meshtastic.core.resources.range_test_route
 import org.meshtastic.core.resources.range_test_success_rate
+import org.meshtastic.core.resources.range_test_you
 import org.meshtastic.core.resources.rssi
 import org.meshtastic.core.resources.snr
 import org.meshtastic.core.ui.icon.FileDownload
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.util.KeepScreenOn
 import org.meshtastic.core.ui.util.LocalRangeTestMapProvider
-import org.meshtastic.core.ui.util.RangeTestMapMode
+import org.meshtastic.core.ui.util.RangeTestMapData
 import org.meshtastic.core.ui.util.rememberSaveFileLauncher
-import org.meshtastic.feature.rangetest.RangeTestCellStats
 import org.meshtastic.feature.rangetest.RangeTestExportResult
+import org.meshtastic.feature.rangetest.RangeTestHeatmap
 import org.meshtastic.feature.rangetest.RangeTestMapSettings
-import org.meshtastic.feature.rangetest.RangeTestMapUiState
 import org.meshtastic.feature.rangetest.RangeTestMapViewModel
 import org.meshtastic.feature.rangetest.RangeTestMetric
 import org.meshtastic.feature.rangetest.RangeTestSummary
-import org.meshtastic.feature.rangetest.SignalBand
 
 private const val PERCENT = 100f
-private val CONTROLS_MAX_HEIGHT = 280.dp
+private const val LEGEND_STEPS = 12
+private val PANEL_MAX_HEIGHT = 300.dp
+private val SIDE_PANEL_WIDTH = 360.dp
+private val WIDE_LAYOUT_MIN_WIDTH = 840.dp
 
+/**
+ * The session map: a signal-strength heatmap over the base map, with the controls, colour legend and summary in a panel
+ * below (phones) or beside it (wide windows).
+ */
 @Composable
 fun RangeTestMapScreen(viewModel: RangeTestMapViewModel, onNavigateUp: () -> Unit, modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val units by viewModel.units.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val you = stringResource(Res.string.range_test_you)
 
     KeepScreenOn(enabled = state.live != null)
     ExportResultSnackbar(viewModel.exportResults, snackbar)
@@ -136,24 +141,34 @@ fun RangeTestMapScreen(viewModel: RangeTestMapViewModel, onNavigateUp: () -> Uni
             }
             return@Scaffold
         }
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            MapArea(state, onCellClick = viewModel::selectCell, modifier = Modifier.weight(1f).fillMaxWidth())
+        val mapData = state.mapData.copy(receiver = state.mapData.receiver?.copy(label = you))
+        val panel: @Composable (Modifier) -> Unit = { panelModifier ->
             Column(
-                Modifier.fillMaxWidth()
-                    .heightIn(max = CONTROLS_MAX_HEIGHT)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                panelModifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Controls(
                     settings = state.settings,
-                    onMode = viewModel::setMode,
                     onMetric = viewModel::setMetric,
-                    onCellSize = viewModel::setCellSize,
                     onIncludeRelayedChange = viewModel::setIncludeRelayed,
+                    onShowRouteChange = viewModel::setShowRoute,
                 )
-                state.selectedCell?.let { CellDetails(it, units) }
+                Legend()
+                HorizontalDivider()
                 SummaryBlock(state.summary, units)
+            }
+        }
+        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+            if (maxWidth >= WIDE_LAYOUT_MIN_WIDTH) {
+                Row(Modifier.fillMaxSize()) {
+                    MapArea(mapData, Modifier.weight(1f).fillMaxHeight())
+                    panel(Modifier.width(SIDE_PANEL_WIDTH).fillMaxHeight())
+                }
+            } else {
+                Column(Modifier.fillMaxSize()) {
+                    MapArea(mapData, Modifier.weight(1f).fillMaxWidth())
+                    panel(Modifier.fillMaxWidth().heightIn(max = PANEL_MAX_HEIGHT))
+                }
             }
         }
     }
@@ -205,42 +220,36 @@ private fun ExportMenu(baseName: String, onCsv: (CommonUri) -> Unit, onKml: (Com
 }
 
 @Composable
-private fun MapArea(state: RangeTestMapUiState, onCellClick: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun MapArea(data: RangeTestMapData, modifier: Modifier = Modifier) {
     val rangeTestMap = LocalRangeTestMapProvider.current
     Box(modifier) {
-        if (state.mapData.boundsPoints.isEmpty()) {
+        if (data.boundsPoints.isEmpty()) {
             Text(
                 stringResource(Res.string.range_test_map_unavailable),
                 modifier = Modifier.align(Alignment.Center).padding(16.dp),
             )
         } else {
-            rangeTestMap(state.mapData, onCellClick, Modifier.fillMaxSize())
+            rangeTestMap(data, Modifier.fillMaxSize())
         }
-        Legend(mode = state.settings.mode, modifier = Modifier.align(Alignment.BottomStart).padding(8.dp))
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Controls(
     settings: RangeTestMapSettings,
-    onMode: (RangeTestMapMode) -> Unit,
     onMetric: (RangeTestMetric) -> Unit,
-    onCellSize: (Int) -> Unit,
     onIncludeRelayedChange: (Boolean) -> Unit,
+    onShowRouteChange: (Boolean) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        val modes =
-            listOf(
-                RangeTestMapMode.GRID to Res.string.range_test_mode_grid,
-                RangeTestMapMode.HEATMAP to Res.string.range_test_mode_heatmap,
-                RangeTestMapMode.POINTS to Res.string.range_test_mode_points,
-            )
+        val metrics = listOf(RangeTestMetric.SNR to Res.string.snr, RangeTestMetric.RSSI to Res.string.rssi)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            modes.forEachIndexed { index, (mode, label) ->
+            metrics.forEachIndexed { index, (metric, label) ->
                 SegmentedButton(
-                    selected = settings.mode == mode,
-                    onClick = { onMode(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(index, modes.size),
+                    selected = settings.metric == metric,
+                    onClick = { onMetric(metric) },
+                    shape = SegmentedButtonDefaults.itemShape(index, metrics.size),
                 ) {
                     Text(stringResource(label))
                 }
@@ -248,14 +257,9 @@ private fun Controls(
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
-                selected = settings.metric == RangeTestMetric.SNR,
-                onClick = { onMetric(RangeTestMetric.SNR) },
-                label = { Text(stringResource(Res.string.snr)) },
-            )
-            FilterChip(
-                selected = settings.metric == RangeTestMetric.RSSI,
-                onClick = { onMetric(RangeTestMetric.RSSI) },
-                label = { Text(stringResource(Res.string.rssi)) },
+                selected = settings.showRoute,
+                onClick = { onShowRouteChange(!settings.showRoute) },
+                label = { Text(stringResource(Res.string.range_test_route)) },
             )
             FilterChip(
                 selected = settings.includeRelayed,
@@ -263,82 +267,51 @@ private fun Controls(
                 label = { Text(stringResource(Res.string.range_test_include_relayed)) },
             )
         }
-        if (settings.mode == RangeTestMapMode.GRID) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                RangeTestMapSettings.CELL_SIZES_M.forEach { size ->
-                    FilterChip(
-                        selected = settings.cellSizeM == size,
-                        onClick = { onCellSize(size) },
-                        label = { Text(stringResource(Res.string.range_test_cell_size, size)) },
-                    )
-                }
-            }
+    }
+}
+
+/** The heatmap's colour scale, weak to strong, plus the grey used where beacons went missing. */
+@Composable
+private fun Legend() {
+    val colors = remember {
+        List(LEGEND_STEPS + 1) { step -> Color(RangeTestHeatmap.colorAt(step.toFloat() / LEGEND_STEPS)) }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(Res.string.range_test_legend_title), style = MaterialTheme.typography.titleSmall)
+        val barShape = RoundedCornerShape(6.dp)
+        Box(Modifier.fillMaxWidth().height(12.dp).background(Brush.horizontalGradient(colors), barShape))
+        Row(Modifier.fillMaxWidth()) {
+            Text(stringResource(Res.string.range_test_band_very_weak), style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.weight(1f))
+            Text(stringResource(Res.string.range_test_band_strong), style = MaterialTheme.typography.labelSmall)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                Modifier.size(width = 24.dp, height = 12.dp),
+                shape = RoundedCornerShape(6.dp),
+                color = Color(MISSED_SWATCH.toInt()),
+            ) {}
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(Res.string.range_test_missed), style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
-@Composable
-private fun Legend(mode: RangeTestMapMode, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(8.dp), tonalElevation = 3.dp, shadowElevation = 2.dp) {
-        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            if (mode == RangeTestMapMode.HEATMAP) {
-                Text(stringResource(Res.string.range_test_heat_hint), style = MaterialTheme.typography.labelSmall)
-            } else {
-                listOf(
-                    SignalBand.STRONG to Res.string.range_test_band_strong,
-                    SignalBand.GOOD to Res.string.range_test_band_good,
-                    SignalBand.FAIR to Res.string.range_test_band_fair,
-                    SignalBand.WEAK to Res.string.range_test_band_weak,
-                    SignalBand.VERY_WEAK to Res.string.range_test_band_very_weak,
-                    SignalBand.MISSED to Res.string.range_test_missed,
-                )
-                    .forEach { (band, label) ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(10.dp).background(Color(band.argb), CircleShape))
-                            Spacer(Modifier.size(6.dp))
-                            Text(stringResource(label), style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CellDetails(cell: RangeTestCellStats, units: MeasurementSystem) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(stringResource(Res.string.range_test_cell_counts, cell.received, cell.missed))
-            Text("${stringResource(Res.string.range_test_success_rate)}: ${(cell.successRate * PERCENT).toInt()}%")
-            if (cell.avgSnr != null && cell.minSnr != null) {
-                Text(
-                    "${stringResource(Res.string.snr)}: " +
-                        stringResource(Res.string.range_test_avg_min, formatSnr(cell.avgSnr), formatSnr(cell.minSnr)),
-                )
-            }
-            if (cell.avgRssi != null && cell.minRssi != null) {
-                Text(
-                    "${stringResource(Res.string.rssi)}: " +
-                        stringResource(
-                            Res.string.range_test_avg_min,
-                            formatRssi(cell.avgRssi),
-                            formatRssi(cell.minRssi),
-                        ),
-                )
-            }
-            cell.avgDistanceM?.let { Text(formatDistance(it, units)) }
-        }
-    }
-}
+private const val MISSED_SWATCH = 0xFF9E9E9E
 
 @Composable
 private fun SummaryBlock(summary: RangeTestSummary, units: MeasurementSystem) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        val counts = stringResource(Res.string.range_test_cell_counts, summary.received, summary.missed)
-        val rate = "${stringResource(Res.string.range_test_success_rate)} ${(summary.successRate * PERCENT).toInt()}%"
-        val relayedLabel = stringResource(Res.string.range_test_relayed)
-        val relayed = if (summary.relayed > 0) " · $relayedLabel: ${summary.relayed}" else ""
-        Text("$counts · $rate$relayed", style = MaterialTheme.typography.bodyMedium)
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        StatRow(
+            buildList {
+                add(stringResource(Res.string.range_test_received) to summary.received.toString())
+                add(stringResource(Res.string.range_test_missed) to summary.missed.toString())
+                if (summary.relayed > 0) {
+                    add(stringResource(Res.string.range_test_relayed) to summary.relayed.toString())
+                }
+                add(stringResource(Res.string.range_test_success_rate) to "${(summary.successRate * PERCENT).toInt()}%")
+            },
+        )
         summary.maxDirectDistanceM?.let {
             Text("${stringResource(Res.string.range_test_max_distance)}: ${formatDistance(it, units)}")
         }

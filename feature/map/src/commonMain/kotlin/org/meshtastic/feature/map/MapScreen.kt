@@ -23,16 +23,26 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jetbrains.compose.resources.stringResource
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.map
 import org.meshtastic.core.resources.mesh_hud_open
+import org.meshtastic.core.resources.range_test_locked_title
 import org.meshtastic.core.ui.component.MainAppBar
 import org.meshtastic.core.ui.icon.CenterFocusStrong
+import org.meshtastic.core.ui.icon.Distance
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.util.LocalMapViewProvider
+
+/**
+ * Opens the Range Test hub from the map's top bar. Provided by the map's navigation entry, so the platform map
+ * providers need no extra parameter; null hides the button.
+ */
+@Suppress("CompositionLocalAllowlist")
+internal val LocalOpenRangeTest = staticCompositionLocalOf<(() -> Unit)?> { null }
 
 @Composable
 fun MapScreen(
@@ -59,6 +69,14 @@ fun MapScreen(
                 canNavigateUp = false,
                 onNavigateUp = {},
                 actions = {
+                    LocalOpenRangeTest.current?.let { onClick ->
+                        IconButton(onClick = onClick) {
+                            Icon(
+                                MeshtasticIcons.Distance,
+                                contentDescription = stringResource(Res.string.range_test_locked_title),
+                            )
+                        }
+                    }
                     onOpenMeshHud?.let { onClick ->
                         IconButton(onClick = onClick) {
                             Icon(

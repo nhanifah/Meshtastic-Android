@@ -16,15 +16,17 @@
  */
 package org.meshtastic.feature.rangetest
 
+import okio.ByteString.Companion.encodeUtf8
 import org.meshtastic.core.database.entity.RangeTestLocationSource
 import org.meshtastic.core.database.entity.RangeTestSampleEntity
 import org.meshtastic.core.database.entity.RangeTestSampleKind
 import org.meshtastic.core.model.Node
 import org.meshtastic.core.repository.PhoneLocation
 import org.meshtastic.core.repository.PhoneLocationState
-import org.meshtastic.core.ui.util.RangeTestMapMode
-import org.meshtastic.core.ui.util.RangeTestMapTarget
+import org.meshtastic.core.ui.util.RangeTestMapPin
+import org.meshtastic.proto.Data
 import org.meshtastic.proto.MeshPacket
+import org.meshtastic.proto.PortNum
 import org.meshtastic.proto.Position
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -48,12 +50,15 @@ class RangeTestLogicTest {
     }
 
     @Test
-    fun bandsAndWeaknessFollowThresholds() {
+    fun bandsAndStrengthFollowThresholds() {
         assertEquals(SignalBand.STRONG, RangeTestSignal.band(RangeTestMetric.SNR, 8f))
         assertEquals(SignalBand.VERY_WEAK, RangeTestSignal.band(RangeTestMetric.SNR, -15f))
         assertEquals(SignalBand.FAIR, RangeTestSignal.band(RangeTestMetric.RSSI, -110f))
-        assertEquals(0.0, RangeTestSignal.weakness(RangeTestMetric.SNR, 10f))
-        assertEquals(1.0, RangeTestSignal.weakness(RangeTestMetric.RSSI, -140f))
+        assertEquals(0f, RangeTestSignal.strength(RangeTestMetric.RSSI, -140f))
+        assertEquals(1f, RangeTestSignal.strength(RangeTestMetric.SNR, 20f))
+        // Each band covers a fifth of the scale: a FAIR reading lands between 0.4 and 0.6.
+        val fair = RangeTestSignal.strength(RangeTestMetric.SNR, -3f)
+        assertTrue(fair in 0.4f..0.6f, "fair strength was $fair")
     }
 
     @Test
@@ -61,25 +66,6 @@ class RangeTestLogicTest {
         val samples = listOf(received(hops = 0), received(hops = 2), received(hops = null), missed())
         assertEquals(3, RangeTestGrid.signalSamples(samples, includeRelayed = false).size)
         assertEquals(4, RangeTestGrid.signalSamples(samples, includeRelayed = true).size)
-    }
-
-    @Test
-    fun cellsAggregateAndLossDowngradesBand() {
-        val samples = listOf(received(snr = 6f), missed(), missed(), missed())
-        val cells = RangeTestGrid.cells(samples, originLat = LAT, originLon = LON, cellSizeM = 50)
-        assertEquals(1, cells.size)
-        val cell = cells.single()
-        assertEquals(1, cell.received)
-        assertEquals(3, cell.missed)
-        // Strong SNR but 25% delivery: the cell is still a weak spot.
-        assertEquals(SignalBand.WEAK, RangeTestGrid.cellBand(cell, RangeTestMetric.SNR))
-    }
-
-    @Test
-    fun cellsSplitByCellSize() {
-        val far = received().copy(latitude = LAT + 0.001) // ~111 m north
-        val cells = RangeTestGrid.cells(listOf(received(), far), originLat = LAT, originLon = LON, cellSizeM = 50)
-        assertEquals(2, cells.size)
     }
 
     @Test
@@ -99,19 +85,85 @@ class RangeTestLogicTest {
     }
 
     @Test
-    fun heatmapWeightsMissedAsHottest() {
-        val (data, _) =
-            RangeTestGrid.mapData(
-                samples = listOf(received(snr = 10f), missed()),
-                target = RangeTestMapTarget(LAT, LON, "base"),
-                mode = RangeTestMapMode.HEATMAP,
-                metric = RangeTestMetric.SNR,
-                cellSizeM = 50,
-                includeRelayed = false,
-                receiver = null,
-            )
-        assertEquals(listOf(0.0, 1.0), data.heat.map { it.weight })
-        assertTrue(data.ringsMeters.isNotEmpty())
+    fun relayedBeaconAdvancesSequenceSoItIsNeverMissed() {
+        val sequence = BeaconSequence()
+        assertTrue(sequence.advance(seq = 1, now = 0).isEmpty())
+        // Beacon 2 arrived through a relay: still received, so it must not show up as a gap later.
+        assertTrue(sequence.advance(seq = 2, now = 15_000).isEmpty())
+        assertTrue(sequence.advance(seq = 3, now = 30_000).isEmpty())
+    }
+
+    @Test
+    fun skippedSequenceNumbersBecomeGapsWithInterpolatedTimes() {
+        val sequence = BeaconSequence()
+        sequence.advance(seq = 10, now = 0)
+        val gaps = sequence.advance(seq = 13, now = 30_000)
+        assertEquals(listOf(11, 12), gaps.map { it.seq })
+        assertEquals(listOf(10_000L, 20_000L), gaps.map { it.dueAt })
+    }
+
+    @Test
+    fun duplicatesAndRestartsAreNotLosses() {
+        val sequence = BeaconSequence()
+        sequence.advance(seq = 50, now = 0)
+        assertTrue(sequence.advance(seq = 50, now = 1_000).isEmpty())
+        // The sender restarted from 1: a new run, not 49 lost beacons.
+        assertTrue(sequence.advance(seq = 1, now = 2_000).isEmpty())
+        assertEquals(listOf(2), sequence.advance(seq = 3, now = 4_000).map { it.seq })
+    }
+
+    @Test
+    fun parsesOwnAndFirmwareBeacons() {
+        val own = beaconPacket(PortNum.PRIVATE_APP, RangeTestBeacon.encode(seq = 5, intervalSec = 15).utf8())
+        assertEquals(RangeTestBeacon.Parsed(seq = 5, intervalSec = 15), RangeTestBeacon.parse(own))
+        val firmware = beaconPacket(PortNum.RANGE_TEST_APP, "seq 9")
+        assertEquals(9, RangeTestBeacon.parse(firmware)?.seq)
+        assertNull(RangeTestBeacon.parse(beaconPacket(PortNum.PRIVATE_APP, "something else")))
+        assertNull(RangeTestBeacon.parse(beaconPacket(PortNum.TEXT_MESSAGE_APP, "seq 1")))
+    }
+
+    @Test
+    fun heatmapColoursBySignalAndLeavesUnvisitedAreasTransparent() {
+        val strong = RangeTestHeatInput(LAT, LON, strength = 1f)
+        val weak = RangeTestHeatInput(LAT + 0.01, LON, strength = 0f) // ~1.1 km north
+        val raster = RangeTestHeatmap.render(listOf(strong, weak), version = 1)!!
+        val pixels = raster.pixels
+        // Some pixels are drawn, and some (between the far-apart readings) are left fully transparent.
+        assertTrue(pixels.any { it ushr 24 != 0 })
+        assertTrue(pixels.any { it ushr 24 == 0 })
+        // The bottom (south, strong) half is greener than the top (north, weak) half.
+        fun greenMinusRed(rows: IntRange): Int = rows.sumOf { row ->
+            (0 until raster.width).sumOf { col ->
+                val p = pixels[row * raster.width + col]
+                if (p ushr 24 == 0) 0 else ((p shr 8) and 0xFF) - ((p shr 16) and 0xFF)
+            }
+        }
+        val half = raster.height / 2
+        assertTrue(greenMinusRed(half until raster.height) > greenMinusRed(0 until half))
+    }
+
+    @Test
+    fun heatmapIsEmptyWithoutReadings() {
+        assertNull(RangeTestHeatmap.render(emptyList(), version = 1))
+    }
+
+    @Test
+    fun mapDataShowsRouteOnlyWhenAsked() {
+        val track = received().copy(kind = RangeTestSampleKind.TRACK)
+        val samples = listOf(received(snr = 8f), track, track.copy(latitude = LAT + 0.001))
+        fun mapData(showRoute: Boolean) = RangeTestGrid.mapData(
+            samples = samples,
+            sender = RangeTestMapPin(LAT, LON, "base"),
+            receiver = null,
+            metric = RangeTestMetric.SNR,
+            includeRelayed = false,
+            showRoute = showRoute,
+            version = 1,
+        )
+        val shown = mapData(showRoute = true)
+        assertEquals(2, shown.track.size)
+        assertTrue(shown.heat != null)
+        assertTrue(mapData(showRoute = false).track.isEmpty())
     }
 
     @Test
@@ -133,6 +185,9 @@ class RangeTestLogicTest {
         assertEquals(RangeTestLocationSource.PHONE, RangeTestRecorder.bestFix(phone, radioNode, stale)?.source)
         assertEquals(RangeTestLocationSource.PHONE, RangeTestRecorder.bestFix(phone, null, now)?.source)
     }
+
+    private fun beaconPacket(port: PortNum, text: String) =
+        MeshPacket.Builder().decoded(Data.Builder().portnum(port).payload(text.encodeUtf8()).build()).build()
 
     private fun packet(hopStart: Int, hopLimit: Int) =
         MeshPacket.Builder().hop_start(hopStart).hop_limit(hopLimit).build()

@@ -250,8 +250,17 @@ sealed interface DiscoveryRoute : Route {
 
 @Serializable
 sealed interface RangeTestRoute : Route {
-    /** Pick the stationary sender, start/stop recording, and browse past sessions. */
+    /** The hub: what is running now, a way into the setup wizard, and past tests. */
     @Serializable data object RangeTestHome : RangeTestRoute
+
+    /** Step-by-step setup: role, dedicated channel, then sender or receiver options. */
+    @Serializable data object RangeTestWizard : RangeTestRoute
+
+    /** The stationary side while it sends beacons. */
+    @Serializable data object RangeTestSender : RangeTestRoute
+
+    /** The mobile side while it records. */
+    @Serializable data object RangeTestReceiver : RangeTestRoute
 
     @Serializable data class RangeTestMap(val sessionId: Long) : RangeTestRoute
 }

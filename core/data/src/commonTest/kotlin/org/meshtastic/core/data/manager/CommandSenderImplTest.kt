@@ -180,6 +180,25 @@ class CommandSenderImplTest {
     }
 
     @Test
+    fun sendData_noRelayHopLimitGoesOutAsZero() = runTest {
+        val packets = mutableListOf<MeshPacket>()
+        everySuspend { packetHandler.sendToRadio(capture(packets)) } returns true
+
+        commandSender.sendData(
+            DataPacket(
+                to = "^all",
+                bytes = "b".encodeUtf8(),
+                dataType = PortNum.PRIVATE_APP.value,
+                hopLimit = DataPacket.HOP_LIMIT_NO_RELAY,
+            ),
+        )
+        commandSender.sendData(DataPacket(to = "^all", bytes = "b".encodeUtf8(), dataType = PortNum.PRIVATE_APP.value))
+
+        assertEquals(0, packets[0].hop_limit)
+        assertTrue(packets[1].hop_limit > 0, "the default still uses the configured hop limit")
+    }
+
+    @Test
     fun sendData_setsStatusQueued() = runTest {
         val packet =
             DataPacket(to = "^all", bytes = "hello".encodeUtf8(), dataType = PortNum.TEXT_MESSAGE_APP.value, time = 0)

@@ -37,7 +37,6 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.meshtastic.core.common.util.UnitsOverride
 import org.meshtastic.core.navigation.DiscoveryRoute
 import org.meshtastic.core.navigation.FirmwareRoute
-import org.meshtastic.core.navigation.RangeTestRoute
 import org.meshtastic.core.navigation.Route
 import org.meshtastic.core.navigation.SettingsRoute
 import org.meshtastic.core.navigation.WifiProvisionRoute
@@ -54,7 +53,6 @@ import org.meshtastic.core.resources.node_layout_section_title
 import org.meshtastic.core.resources.preferences_language
 import org.meshtastic.core.resources.preferences_system_default
 import org.meshtastic.core.resources.pt_BR
-import org.meshtastic.core.resources.range_test_locked_title
 import org.meshtastic.core.resources.supportedLocaleTags
 import org.meshtastic.core.resources.theme
 import org.meshtastic.core.resources.units
@@ -251,12 +249,6 @@ fun DesktopSettingsScreen(
                         leadingIcon = MeshtasticIcons.PermScanWifi,
                     ) {
                         onNavigate(DiscoveryRoute.DiscoveryGraph)
-                    }
-                    ListItem(
-                        text = stringResource(Res.string.range_test_locked_title),
-                        leadingIcon = MeshtasticIcons.Distance,
-                    ) {
-                        onNavigate(RangeTestRoute.RangeTestHome)
                     }
                 }
 

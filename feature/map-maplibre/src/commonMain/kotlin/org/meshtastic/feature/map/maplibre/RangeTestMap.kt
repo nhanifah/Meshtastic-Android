@@ -20,69 +20,55 @@ package org.meshtastic.feature.map.maplibre
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.expressions.dsl.asBoolean
-import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.convertToColor
-import org.maplibre.compose.expressions.dsl.feature
-import org.maplibre.compose.expressions.dsl.heatmapDensity
-import org.maplibre.compose.expressions.dsl.interpolate
-import org.maplibre.compose.expressions.dsl.linear
-import org.maplibre.compose.expressions.dsl.not
 import org.maplibre.compose.expressions.value.LineCap
-import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.layers.CircleLayer
-import org.maplibre.compose.layers.FillLayer
-import org.maplibre.compose.layers.HeatmapLayer
 import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.sources.rememberImageSource
+import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Point
-import org.maplibre.spatialk.geojson.Polygon
+import org.meshtastic.core.ui.util.RangeTestHeatRaster
 import org.meshtastic.core.ui.util.RangeTestMapData
-import org.meshtastic.core.ui.util.RangeTestMapMode
+import org.meshtastic.core.ui.util.RangeTestMapPin
 import org.meshtastic.feature.map.maplibre.component.customRasterBasemaps
 import org.meshtastic.feature.map.maplibre.component.rememberBasemapSelection
 import org.meshtastic.feature.map.maplibre.geojson.MapChipKey
 import org.meshtastic.feature.map.maplibre.geojson.NodeFeatureKeys
-import org.meshtastic.feature.map.maplibre.geojson.circlePolygon
 import org.meshtastic.feature.map.maplibre.geojson.featureValue
 import org.meshtastic.feature.map.maplibre.geojson.rememberFeatureSource
 import org.meshtastic.feature.map.maplibre.layers.MapChipLayer
 import org.meshtastic.feature.map.maplibre.style.MapColors
 import org.maplibre.spatialk.geojson.Position as GeoPosition
 
-private const val CELL_ID_KEY = "cellId"
-private const val COLOR_KEY = "color"
-private const val ALPHA_KEY = "alpha"
-private const val MISSED_KEY = "missed"
-private const val WEIGHT_KEY = "w"
-private const val ARGB_ALPHA_SHIFT = 24
-private const val BYTE_MASK = 0xFF
-private const val ALPHA_MAX = 255.0
-private const val HEAT_OPACITY = 0.8f
-private const val RING_OPACITY = 0.6f
 private val RangeTestTrackColor = Color(0xFF1E88E5)
-private val RangeTestRingColor = Color(0xFF546E7A)
+private val RangeTestReceiverColor = Color(0xFF1E88E5)
+private const val TRACK_OPACITY = 0.7f
+private const val PIN_LABEL_MAX = 12
+private const val ALPHA_SHIFT = 24
 
 /**
- * Range-test map on MapLibre (fdroid and desktop): signal grid, heatmap or beacon dots over the receiver's route, with
- * the stationary sender and distance rings. All bucketing and coloring happened in common code; this only draws.
+ * Range-test map on MapLibre (fdroid and desktop): the signal heatmap draped as an image (transparent wherever nothing
+ * was measured), the receiver's route, and sender / receiver pins. No circles; all colouring happened in common code.
  */
 @Composable
 fun MapLibreRangeTestMap(
     data: RangeTestMapData,
-    onCellClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     customBasemaps: @Composable () -> List<org.meshtastic.feature.map.maplibre.style.Basemap.Raster> = {
         customRasterBasemaps()
@@ -95,21 +81,15 @@ fun MapLibreRangeTestMap(
 
     val mapState =
         rememberSecondaryMapState(basemaps, CameraPosition(center = center, zoom = DETAIL_ZOOM)) {
-            RingLayer(data)
-            when (data.mode) {
-                RangeTestMapMode.GRID -> CellLayer(data, onCellClick)
-                RangeTestMapMode.HEATMAP -> HeatLayer(data)
-                RangeTestMapMode.POINTS -> Unit
-            }
+            data.heat?.let { HeatLayer(it) }
             TrackLayer(data)
-            if (data.mode == RangeTestMapMode.POINTS) PointLayer(data)
-            ReceiverLayer(data)
-            TargetLayer(data)
+            data.sender?.let { PinLayer("rangetest-sender", it, MapColors.DiscoveryUser) }
+            data.receiver?.let { PinLayer("rangetest-receiver", it, RangeTestReceiverColor) }
         }
 
     // Frame once per session (keyed on the sender), not on every new sample — a live map that re-fits on each beacon
     // would fight the user's own panning.
-    FitBoundsOnceVisible(mapState = mapState, key = data.target to data.boundsPoints.isNotEmpty()) {
+    FitBoundsOnceVisible(mapState = mapState, key = data.sender to data.boundsPoints.isNotEmpty()) {
         positionsBoundingBox(data.boundsPoints.map { GeoPosition(longitude = it.longitude, latitude = it.latitude) })
     }
 
@@ -120,113 +100,36 @@ fun MapLibreRangeTestMap(
 }
 
 @Composable
-private fun CellLayer(data: RangeTestMapData, onCellClick: (String) -> Unit) {
-    val source =
-        rememberFeatureSource(data.cells) {
-            FeatureCollection(
-                data.cells.map { cell ->
-                    val ring =
-                        listOf(
-                            GeoPosition(longitude = cell.west, latitude = cell.south),
-                            GeoPosition(longitude = cell.east, latitude = cell.south),
-                            GeoPosition(longitude = cell.east, latitude = cell.north),
-                            GeoPosition(longitude = cell.west, latitude = cell.north),
-                            GeoPosition(longitude = cell.west, latitude = cell.south),
-                        )
-                    Feature<Polygon, JsonObject?>(
-                        geometry = Polygon(listOf(ring)),
-                        properties =
-                        buildJsonObject {
-                            put(CELL_ID_KEY, cell.id)
-                            put(COLOR_KEY, cssColor(cell.argb))
-                            put(ALPHA_KEY, alphaOf(cell.argb))
-                        },
-                    )
-                },
+private fun HeatLayer(heat: RangeTestHeatRaster) {
+    // Rebuilt only when the heatmap changes; MapLibre resamples the small image linearly, so it reads as smooth.
+    val image = remember(heat) { PreparedImage.fromBitmap(heat.toImageBitmap()) }
+    val quad =
+        remember(heat) {
+            PositionQuad(
+                topLeft = GeoPosition(longitude = heat.west, latitude = heat.north),
+                topRight = GeoPosition(longitude = heat.east, latitude = heat.north),
+                bottomRight = GeoPosition(longitude = heat.east, latitude = heat.south),
+                bottomLeft = GeoPosition(longitude = heat.west, latitude = heat.south),
             )
         }
-    FillLayer(
-        id = "rangetest-cells",
-        source = source,
-        color = feature[COLOR_KEY].convertToColor(const(Color.Gray)),
-        opacity = feature[ALPHA_KEY].asNumber(const(1f)),
-        outlineColor = const(Color.White),
-        onClick = { features ->
-            features.firstOrNull()?.properties?.get(CELL_ID_KEY)?.jsonPrimitive?.content?.let {
-                onCellClick(it)
-                ClickResult.Consume
-            } ?: ClickResult.Pass
-        },
-    )
+    val source = rememberImageSource(quad, image)
+    RasterLayer(id = "rangetest-heat", source = source)
 }
 
-@Composable
-private fun HeatLayer(data: RangeTestMapData) {
-    val source =
-        rememberFeatureSource(data.heat) {
-            FeatureCollection(
-                data.heat.map {
-                    Feature<Point, JsonObject?>(
-                        geometry = Point(GeoPosition(longitude = it.longitude, latitude = it.latitude)),
-                        properties = buildJsonObject { put(WEIGHT_KEY, it.weight) },
-                    )
-                },
-            )
+/** Paints the ARGB pixels one by one; the raster is small (≈160 px on its long side), so this is cheap. */
+private fun RangeTestHeatRaster.toImageBitmap(): ImageBitmap {
+    val bitmap = ImageBitmap(width, height)
+    val canvas = Canvas(bitmap)
+    val paint = Paint().apply { isAntiAlias = false }
+    for (row in 0 until height) {
+        for (col in 0 until width) {
+            val argb = pixels[row * width + col]
+            if (argb ushr ALPHA_SHIFT == 0) continue
+            paint.color = Color(argb)
+            canvas.drawRect(col.toFloat(), row.toFloat(), col + 1f, row + 1f, paint)
         }
-    HeatmapLayer(
-        id = "rangetest-heat",
-        source = source,
-        weight = feature[WEIGHT_KEY].asNumber(const(0f)),
-        radius = const(24.dp),
-        opacity = const(HEAT_OPACITY),
-        color =
-        interpolate(
-            linear(),
-            heatmapDensity(),
-            0f to const(Color.Transparent),
-            0.2f to const(Color(0xFFFFF59D)),
-            0.45f to const(Color(0xFFFBC02D)),
-            0.7f to const(Color(0xFFF57C00)),
-            1f to const(Color(0xFFD32F2F)),
-        ),
-    )
-}
-
-@Composable
-private fun PointLayer(data: RangeTestMapData) {
-    val source =
-        rememberFeatureSource(data.points) {
-            FeatureCollection(
-                data.points.map {
-                    Feature<Point, JsonObject?>(
-                        geometry = Point(GeoPosition(longitude = it.longitude, latitude = it.latitude)),
-                        properties =
-                        buildJsonObject {
-                            put(COLOR_KEY, cssColor(it.argb))
-                            put(MISSED_KEY, it.missed)
-                        },
-                    )
-                },
-            )
-        }
-    CircleLayer(
-        id = "rangetest-points",
-        source = source,
-        color = feature[COLOR_KEY].convertToColor(const(Color.Gray)),
-        radius = const(5.dp),
-        strokeColor = const(Color.White),
-        strokeWidth = const(1.dp),
-        filter = !feature[MISSED_KEY].asBoolean(),
-    )
-    CircleLayer(
-        id = "rangetest-missed",
-        source = source,
-        color = const(Color.Transparent),
-        radius = const(5.dp),
-        strokeColor = feature[COLOR_KEY].convertToColor(const(Color.DarkGray)),
-        strokeWidth = const(2.dp),
-        filter = feature[MISSED_KEY].asBoolean(),
-    )
+    }
+    return bitmap
 }
 
 @Composable
@@ -251,84 +154,30 @@ private fun TrackLayer(data: RangeTestMapData) {
         source = source,
         color = const(RangeTestTrackColor),
         width = const(2.dp),
+        opacity = const(TRACK_OPACITY),
         cap = const(LineCap.Round),
     )
 }
 
 @Composable
-private fun RingLayer(data: RangeTestMapData) {
-    val target = data.target ?: return
-    val source =
-        rememberFeatureSource(target, data.ringsMeters) {
-            FeatureCollection(
-                data.ringsMeters.map { radius ->
-                    Feature<Polygon, JsonObject?>(
-                        geometry = circlePolygon(target.latitude, target.longitude, radius),
-                        properties = null,
-                    )
-                },
-            )
-        }
-    LineLayer(
-        id = "rangetest-rings",
-        source = source,
-        color = const(RangeTestRingColor),
-        width = const(1.dp),
-        opacity = const(RING_OPACITY),
-    )
-}
-
-@Composable
-private fun ReceiverLayer(data: RangeTestMapData) {
-    val receiver = data.receiver ?: return
-    val source =
-        rememberFeatureSource(receiver) {
-            FeatureCollection(
-                listOf(
-                    Feature<Point, JsonObject?>(
-                        geometry = Point(GeoPosition(longitude = receiver.longitude, latitude = receiver.latitude)),
-                        properties = null,
-                    ),
-                ),
-            )
-        }
-    CircleLayer(
-        id = "rangetest-receiver",
-        source = source,
-        color = const(RangeTestTrackColor),
-        radius = const(7.dp),
-        strokeColor = const(Color.White),
-        strokeWidth = const(2.dp),
-    )
-}
-
-@Composable
-private fun TargetLayer(data: RangeTestMapData) {
-    val target = data.target ?: return
+private fun PinLayer(id: String, pin: RangeTestMapPin, color: Color) {
     val chip =
         MapChipKey(
-            label = target.label.take(TARGET_LABEL_MAX),
-            background = MapColors.DiscoveryUser.toArgb(),
+            label = pin.label.take(PIN_LABEL_MAX),
+            background = color.toArgb(),
             foreground = Color.White.toArgb(),
             outlined = true,
         )
     val source =
-        rememberFeatureSource(target, chip) {
+        rememberFeatureSource(pin, chip) {
             FeatureCollection(
                 listOf(
                     Feature<Point, JsonObject?>(
-                        geometry = Point(GeoPosition(longitude = target.longitude, latitude = target.latitude)),
+                        geometry = Point(GeoPosition(longitude = pin.longitude, latitude = pin.latitude)),
                         properties = buildJsonObject { put(NodeFeatureKeys.CHIP, chip.featureValue()) },
                     ),
                 ),
             )
         }
-    MapChipLayer(id = "rangetest-target", source = source, chips = listOf(chip))
+    MapChipLayer(id = id, source = source, chips = listOf(chip))
 }
-
-private const val TARGET_LABEL_MAX = 12
-
-/** `#RRGGBB` for MapLibre's color parser; alpha travels separately as the layer opacity. */
-private fun cssColor(argb: Int): String = "#" + (argb and 0xFFFFFF).toString(16).padStart(6, '0')
-
-private fun alphaOf(argb: Int): Double = ((argb ushr ARGB_ALPHA_SHIFT) and BYTE_MASK) / ALPHA_MAX

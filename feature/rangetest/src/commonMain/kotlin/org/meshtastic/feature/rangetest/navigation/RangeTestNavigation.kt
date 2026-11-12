@@ -23,20 +23,59 @@ import androidx.navigation3.runtime.NavKey
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import org.meshtastic.core.navigation.RangeTestRoute
-import org.meshtastic.core.navigation.SettingsRoute
 import org.meshtastic.feature.rangetest.RangeTestMapViewModel
+import org.meshtastic.feature.rangetest.RangeTestRole
 import org.meshtastic.feature.rangetest.RangeTestViewModel
+import org.meshtastic.feature.rangetest.RangeTestWizardViewModel
 import org.meshtastic.feature.rangetest.ui.RangeTestMapScreen
+import org.meshtastic.feature.rangetest.ui.RangeTestReceiverScreen
 import org.meshtastic.feature.rangetest.ui.RangeTestScreen
+import org.meshtastic.feature.rangetest.ui.RangeTestSenderScreen
+import org.meshtastic.feature.rangetest.ui.RangeTestWizardScreen
 
-/** Registers the locked range-test screens into the Navigation 3 entry provider. */
+/** Registers the Range Test screens into the Navigation 3 entry provider. */
 fun EntryProviderScope<NavKey>.rangeTestGraph(backStack: NavBackStack<NavKey>) {
     entry<RangeTestRoute.RangeTestHome> {
         RangeTestScreen(
             viewModel = koinViewModel<RangeTestViewModel>(),
             onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() },
+            onStartWizard = { backStack.add(RangeTestRoute.RangeTestWizard) },
+            onOpenSender = { backStack.add(RangeTestRoute.RangeTestSender) },
+            onOpenReceiver = { backStack.add(RangeTestRoute.RangeTestReceiver) },
             onOpenMap = { sessionId -> backStack.add(RangeTestRoute.RangeTestMap(sessionId)) },
-            onOpenModuleSettings = { backStack.add(SettingsRoute.RangeTest) },
+        )
+    }
+    entry<RangeTestRoute.RangeTestWizard> {
+        RangeTestWizardScreen(
+            viewModel = koinViewModel<RangeTestWizardViewModel>(),
+            onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() },
+            onStart = { role ->
+                // The wizard is done: the live screen takes its place, so Back returns to the hub.
+                backStack.removeLastOrNull()
+                backStack.add(
+                    when (role) {
+                        RangeTestRole.SENDER -> RangeTestRoute.RangeTestSender
+                        RangeTestRole.RECEIVER -> RangeTestRoute.RangeTestReceiver
+                    },
+                )
+            },
+        )
+    }
+    entry<RangeTestRoute.RangeTestSender> {
+        RangeTestSenderScreen(
+            viewModel = koinViewModel<RangeTestViewModel>(),
+            onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() },
+        )
+    }
+    entry<RangeTestRoute.RangeTestReceiver> {
+        RangeTestReceiverScreen(
+            viewModel = koinViewModel<RangeTestViewModel>(),
+            onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() },
+            onOpenMap = { sessionId -> backStack.add(RangeTestRoute.RangeTestMap(sessionId)) },
+            onStopRecording = { sessionId ->
+                backStack.removeLastOrNull()
+                backStack.add(RangeTestRoute.RangeTestMap(sessionId))
+            },
         )
     }
     entry<RangeTestRoute.RangeTestMap> { route ->

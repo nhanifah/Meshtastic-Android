@@ -176,7 +176,7 @@ class CommandSenderImpl(
                 to = resolveNodeNum(NodeAddress.fromString(p.to)),
                 id = p.id,
                 wantAck = p.wantAck,
-                hopLimit = if (p.hopLimit > 0) p.hopLimit else computeHopLimit(),
+                hopLimit = p.hopLimit,
                 channel = p.channel,
                 decoded =
                 Data.Builder()
@@ -574,7 +574,12 @@ class CommandSenderImpl(
         priority: MeshPacket.Priority = MeshPacket.Priority.UNSET,
         decoded: Data,
     ): MeshPacket {
-        val actualHopLimit = if (hopLimit > 0) hopLimit else computeHopLimit()
+        val actualHopLimit =
+            when {
+                hopLimit > 0 -> hopLimit
+                hopLimit == DataPacket.HOP_LIMIT_NO_RELAY -> 0
+                else -> computeHopLimit()
+            }
 
         var pkiEncrypted = false
         var publicKey: ByteString = ByteString.EMPTY

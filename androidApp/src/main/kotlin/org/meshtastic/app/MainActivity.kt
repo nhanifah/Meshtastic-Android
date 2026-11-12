@@ -291,8 +291,8 @@ open class MainActivity : AppCompatActivity() {
                     org.meshtastic.app.map.discovery.DiscoveryMap(userLat, userLon, nodes, modifier)
                 },
             LocalRangeTestMapProvider provides
-                { data, onCellClick, modifier ->
-                    org.meshtastic.app.map.rangetest.RangeTestMap(data, onCellClick, modifier)
+                { data, modifier ->
+                    org.meshtastic.app.map.rangetest.RangeTestMap(data, modifier)
                 },
             LocalMapMainScreenProvider provides
                 { onClickNodeChip, navigateToNodeDetails, waypointId, sitePlannerNodeNum, onOpenMeshHud ->

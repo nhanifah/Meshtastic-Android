@@ -133,4 +133,12 @@ data class DataPacket(
 
     val hopsAway: Int
         get() = if (hopStart == 0 || (hopLimit > hopStart)) -1 else hopStart - hopLimit
+
+    companion object {
+        /**
+         * Outbound [hopLimit] asking for a packet nobody relays (hop limit 0 on air). A plain 0 already means "use the
+         * radio's configured hop limit", so "no relay" needs its own value.
+         */
+        const val HOP_LIMIT_NO_RELAY: Int = -1
+    }
 }

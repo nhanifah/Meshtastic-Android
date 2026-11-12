@@ -36,34 +36,24 @@ import org.meshtastic.core.database.dao.RangeTestDao
 import org.meshtastic.core.database.entity.RangeTestSessionEntity
 import org.meshtastic.core.di.CoroutineDispatchers
 import org.meshtastic.core.repository.FileService
-import org.meshtastic.core.ui.util.RangeTestLatLng
 import org.meshtastic.core.ui.util.RangeTestMapData
-import org.meshtastic.core.ui.util.RangeTestMapMode
-import org.meshtastic.core.ui.util.RangeTestMapTarget
+import org.meshtastic.core.ui.util.RangeTestMapPin
 import org.meshtastic.core.ui.viewmodel.safeLaunch
 import org.meshtastic.core.ui.viewmodel.stateInWhileSubscribed
 
 /** User-adjustable map presentation. */
 data class RangeTestMapSettings(
-    val mode: RangeTestMapMode = RangeTestMapMode.GRID,
     val metric: RangeTestMetric = RangeTestMetric.SNR,
-    val cellSizeM: Int = DEFAULT_CELL_SIZE_M,
     val includeRelayed: Boolean = false,
-) {
-    companion object {
-        const val DEFAULT_CELL_SIZE_M = 50
-        val CELL_SIZES_M = listOf(25, 50, 100, 200)
-    }
-}
+    val showRoute: Boolean = true,
+)
 
 data class RangeTestMapUiState(
     val session: RangeTestSessionEntity? = null,
     val settings: RangeTestMapSettings = RangeTestMapSettings(),
     val mapData: RangeTestMapData = RangeTestMapData(),
-    val cells: Map<String, RangeTestCellStats> = emptyMap(),
     val summary: RangeTestSummary = RangeTestSummary(),
     val live: RangeTestRecorderState? = null,
-    val selectedCell: RangeTestCellStats? = null,
     val loading: Boolean = true,
 )
 
@@ -71,6 +61,14 @@ enum class RangeTestExportResult {
     SUCCESS,
     FAILURE,
 }
+
+/** The heatmap and summary of one session, recomputed only when samples or settings change. */
+private data class RangeTestRendered(
+    val session: RangeTestSessionEntity?,
+    val settings: RangeTestMapSettings,
+    val mapData: RangeTestMapData,
+    val summary: RangeTestSummary,
+)
 
 @KoinViewModel
 class RangeTestMapViewModel(
@@ -83,7 +81,6 @@ class RangeTestMapViewModel(
 ) : ViewModel() {
 
     private val settings = MutableStateFlow(RangeTestMapSettings())
-    private val selectedCellId = MutableStateFlow<String?>(null)
     private val exportEvents = MutableSharedFlow<RangeTestExportResult>(extraBufferCapacity = 1)
     val exportResults: SharedFlow<RangeTestExportResult> = exportEvents.asSharedFlow()
 
@@ -91,62 +88,59 @@ class RangeTestMapViewModel(
 
     private val live = recorder.state.map { state -> state.takeIf { it.sessionId == sessionId } }
 
-    val uiState: StateFlow<RangeTestMapUiState> =
-        combine(
-            rangeTestDao.getSessionFlow(sessionId),
-            rangeTestDao.getSamples(sessionId),
-            settings,
-            live,
-            selectedCellId,
-        ) { session, samples, settings, live, selectedId ->
+    private val rendered =
+        combine(rangeTestDao.getSessionFlow(sessionId), rangeTestDao.getSamples(sessionId), settings) {
+                session,
+                samples,
+                settings,
+            ->
             val targetLat = session?.targetLatitude
             val targetLon = session?.targetLongitude
-            val target =
+            val sender =
                 if (session != null && targetLat != null && targetLon != null) {
-                    RangeTestMapTarget(targetLat, targetLon, session.targetName)
+                    RangeTestMapPin(targetLat, targetLon, session.targetName)
                 } else {
                     null
                 }
-            val receiver = live?.fix?.let { RangeTestLatLng(it.latitude, it.longitude) }
-            val (mapData, cellStats) =
-                RangeTestGrid.mapData(
-                    samples = samples,
-                    target = target,
-                    mode = settings.mode,
-                    metric = settings.metric,
-                    cellSizeM = settings.cellSizeM,
-                    includeRelayed = settings.includeRelayed,
-                    receiver = receiver,
-                )
-            val cells = cellStats.associateBy { it.id }
-            RangeTestMapUiState(
+            val version = (samples.lastOrNull()?.id ?: 0L) * VERSION_SALT + samples.size + settings.hashCode()
+            RangeTestRendered(
                 session = session,
                 settings = settings,
-                mapData = mapData,
-                cells = cells,
+                mapData =
+                RangeTestGrid.mapData(
+                    samples = samples,
+                    sender = sender,
+                    receiver = null,
+                    metric = settings.metric,
+                    includeRelayed = settings.includeRelayed,
+                    showRoute = settings.showRoute,
+                    version = version,
+                ),
                 summary = RangeTestGrid.summary(samples),
-                live = live,
-                selectedCell = selectedId?.let(cells::get),
-                loading = false,
             )
         }
             .flowOn(dispatchers.default)
-            .stateInWhileSubscribed(initialValue = RangeTestMapUiState())
 
-    fun setMode(mode: RangeTestMapMode) = settings.update { it.copy(mode = mode) }
+    val uiState: StateFlow<RangeTestMapUiState> =
+        combine(rendered, live) { r, live ->
+            // The receiver pin's label is filled in by the screen, which owns the localized text.
+            val receiver = live?.fix?.let { RangeTestMapPin(it.latitude, it.longitude, label = "") }
+            RangeTestMapUiState(
+                session = r.session,
+                settings = r.settings,
+                mapData = r.mapData.copy(receiver = receiver),
+                summary = r.summary,
+                live = live,
+                loading = false,
+            )
+        }
+            .stateInWhileSubscribed(initialValue = RangeTestMapUiState())
 
     fun setMetric(metric: RangeTestMetric) = settings.update { it.copy(metric = metric) }
 
-    fun setCellSize(meters: Int) {
-        selectedCellId.value = null
-        settings.update { it.copy(cellSizeM = meters) }
-    }
-
     fun setIncludeRelayed(include: Boolean) = settings.update { it.copy(includeRelayed = include) }
 
-    fun selectCell(id: String?) {
-        selectedCellId.value = id
-    }
+    fun setShowRoute(show: Boolean) = settings.update { it.copy(showRoute = show) }
 
     fun exportCsv(uri: CommonUri) {
         safeLaunch(tag = "rangeTestExportCsv") {
@@ -162,6 +156,10 @@ class RangeTestMapViewModel(
             val metric = settings.value.metric
             report(fileService.write(uri) { sink -> RangeTestExport.writeKml(sink, session, samples, metric) })
         }
+    }
+
+    private companion object {
+        const val VERSION_SALT = 1_000_003L
     }
 
     private fun report(ok: Boolean) {

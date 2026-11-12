@@ -16,24 +16,29 @@
  */
 package org.meshtastic.feature.map.navigation
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import org.meshtastic.core.navigation.MapRoute
 import org.meshtastic.core.navigation.NodesRoute
+import org.meshtastic.core.navigation.RangeTestRoute
+import org.meshtastic.feature.map.LocalOpenRangeTest
 import org.meshtastic.feature.map.hud.MeshHudScreen
 
 fun EntryProviderScope<NavKey>.mapGraph(backStack: NavBackStack<NavKey>) {
     entry<MapRoute.Map> { args ->
         val mapScreen = org.meshtastic.core.ui.util.LocalMapMainScreenProvider.current
-        mapScreen(
-            { id -> backStack.add(NodesRoute.NodeDetail(id)) }, // onClickNodeChip
-            { id -> backStack.add(NodesRoute.NodeDetail(id)) }, // navigateToNodeDetails
-            args.waypointId,
-            args.sitePlannerNodeNum,
-            { backStack.add(MapRoute.MeshHud()) }, // onOpenMeshHud
-        )
+        CompositionLocalProvider(LocalOpenRangeTest provides { backStack.add(RangeTestRoute.RangeTestHome) }) {
+            mapScreen(
+                { id -> backStack.add(NodesRoute.NodeDetail(id)) }, // onClickNodeChip
+                { id -> backStack.add(NodesRoute.NodeDetail(id)) }, // navigateToNodeDetails
+                args.waypointId,
+                args.sitePlannerNodeNum,
+                { backStack.add(MapRoute.MeshHud()) }, // onOpenMeshHud
+            )
+        }
     }
 
     // No pane metadata: the camera view takes the whole window.

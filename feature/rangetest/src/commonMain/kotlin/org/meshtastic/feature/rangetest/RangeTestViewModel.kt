@@ -24,49 +24,55 @@ import org.meshtastic.core.common.util.LocaleUnitsProvider
 import org.meshtastic.core.common.util.MeasurementSystem
 import org.meshtastic.core.database.dao.RangeTestDao
 import org.meshtastic.core.database.entity.RangeTestSessionEntity
-import org.meshtastic.core.model.Node
-import org.meshtastic.core.repository.NodeRepository
 import org.meshtastic.core.ui.viewmodel.safeLaunch
 import org.meshtastic.core.ui.viewmodel.stateInWhileSubscribed
 
-/** A node the user can lock the range test onto. */
-data class RangeTestCandidate(val node: Node, val hasPosition: Boolean)
-
+/**
+ * Backs the Range Test hub and the two live screens: the receiver's recording, the sender's beacon run, and the list of
+ * recorded sessions.
+ */
 @KoinViewModel
 class RangeTestViewModel(
     private val recorder: RangeTestRecorder,
+    private val sender: RangeTestBeaconSender,
+    private val channels: RangeTestChannels,
     private val rangeTestDao: RangeTestDao,
-    nodeRepository: NodeRepository,
     localeUnitsProvider: LocaleUnitsProvider,
 ) : ViewModel() {
 
     val recorderState: StateFlow<RangeTestRecorderState> = recorder.state
+
+    val senderState: StateFlow<RangeTestSenderState> = sender.state
 
     val units: StateFlow<MeasurementSystem> = localeUnitsProvider.measurementSystem
 
     val sessions: StateFlow<List<RangeTestSessionEntity>> =
         rangeTestDao.getSessions().stateInWhileSubscribed(initialValue = emptyList())
 
-    /** Every other node, most recently heard first — the stationary sender is one of them. */
-    val candidates: StateFlow<List<RangeTestCandidate>> =
-        combine(nodeRepository.nodeDBbyNum, nodeRepository.myNodeInfo) { nodes, me ->
-            nodes.values
-                .filter { it.num != me?.myNodeNum }
-                .sortedByDescending { it.lastHeard }
-                .map { RangeTestCandidate(it, it.validPosition != null) }
+    /** The sender's channel slot, still present on the radio, that the "remove channel" offer would delete. */
+    val senderChannel: StateFlow<RangeTestChannelOption?> =
+        combine(sender.state, channels.channels) { state, list ->
+            val config = state.config ?: return@combine null
+            list.firstOrNull { it.index == config.channelIndex && it.name == config.channelName && !it.isPrimary }
         }
-            .stateInWhileSubscribed(initialValue = emptyList())
+            .stateInWhileSubscribed(initialValue = null)
 
     init {
         safeLaunch(tag = "rangeTestCloseStale") { recorder.closeStaleSessions() }
     }
 
-    fun start(node: Node) {
-        safeLaunch(tag = "rangeTestStart") { recorder.start(node) }
+    fun stopRecording() {
+        safeLaunch(tag = "rangeTestStop") { recorder.stop() }
     }
 
-    fun stop() {
-        safeLaunch(tag = "rangeTestStop") { recorder.stop() }
+    fun stopSending() {
+        safeLaunch(tag = "rangeTestStopSending") { sender.stop() }
+    }
+
+    fun dismissSender() = sender.dismiss()
+
+    fun removeChannel(index: Int) {
+        safeLaunch(tag = "rangeTestRemoveChannel") { channels.removeChannel(index) }
     }
 
     fun deleteSession(sessionId: Long) {

@@ -24,6 +24,6 @@ import org.meshtastic.core.ui.util.RangeTestMapData
 /** Flavor-unified entry point for the range-test map. Google Maps implementation. */
 @Composable
 @NonRestartableComposable
-fun RangeTestMap(data: RangeTestMapData, onCellClick: (String) -> Unit, modifier: Modifier = Modifier) {
-    RangeTestGoogleMap(data = data, onCellClick = onCellClick, modifier = modifier)
+fun RangeTestMap(data: RangeTestMapData, modifier: Modifier = Modifier) {
+    RangeTestGoogleMap(data = data, modifier = modifier)
 }
