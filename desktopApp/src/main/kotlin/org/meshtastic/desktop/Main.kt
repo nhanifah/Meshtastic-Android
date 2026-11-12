@@ -25,7 +25,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -133,6 +132,9 @@ import org.meshtastic.feature.map.maplibre.MapLibreDiscoveryMap
 import org.meshtastic.feature.map.maplibre.MapLibreInlineMap
 import org.meshtastic.feature.map.maplibre.MapLibreNodeTrackMap
 import org.meshtastic.feature.map.maplibre.MapLibreRangeTestMap
+import org.meshtastic.feature.settings.appupdate.AppUpdateManager
+import org.meshtastic.feature.settings.appupdate.AppUpdateRelease
+import org.meshtastic.feature.settings.appupdate.AppUpdateState
 import java.awt.Desktop
 import java.util.Locale
 import kotlin.system.exitProcess
@@ -311,12 +313,12 @@ private fun ApplicationScope.MeshtasticDesktopApp(uiViewModel: UIViewModel, isDa
 
     // One menu model for both tray backends, so the rows cannot drift apart between platforms.
     val trayTooltip = stringResource(Res.string.desktop_tray_tooltip)
-    val updateLabel = updateInfo?.let { stringResource(Res.string.desktop_update_download, it.versionName) }
+    val updateLabel = updateInfo?.let { stringResource(Res.string.desktop_update_download, it.title) }
     val showLabel = stringResource(Res.string.desktop_tray_show)
     val quitLabel = stringResource(Res.string.desktop_tray_quit)
     val trayMenuItems = buildList {
         if (updateInfo != null && updateLabel != null) {
-            add(TrayMenuItem(updateLabel) { openUrl(updateInfo.releaseUrl) })
+            add(TrayMenuItem(updateLabel) { openUrl(updateInfo.pageUrl) })
         }
         add(TrayMenuItem(showLabel) { isAppVisible = true })
         add(TrayMenuItem(quitLabel) { exitApplication() })
@@ -369,34 +371,29 @@ private fun ApplicationScope.MeshtasticDesktopApp(uiViewModel: UIViewModel, isDa
 // ----- Update discovery -----
 
 /**
- * Checks once per launch whether a newer release is published on GitHub and surfaces it via a native notification.
- * Release builds only — dev builds carry the bare base version and would match or trail every published release.
- * Flatpak installs (FLATPAK_ID is set inside the sandbox) update through Flathub instead, so don't point them at
- * GitHub.
+ * Checks this fork's GitHub releases for a newer build (at most every few hours) and surfaces it via a native
+ * notification and the tray menu. Settings → App update downloads and installs it. Flatpak installs (FLATPAK_ID is set
+ * inside the sandbox) update through Flathub instead.
  */
 @Composable
-private fun rememberAvailableUpdate(notificationManager: DesktopNotificationManager): UpdateChecker.UpdateInfo? {
-    val buildConfig = koinInject<BuildConfigProvider>()
-    val httpClient = koinInject<HttpClient>()
-    val updateInfo by
-        produceState<UpdateChecker.UpdateInfo?>(initialValue = null) {
-            if (!buildConfig.isDebug && System.getenv("FLATPAK_ID") == null) {
-                value = UpdateChecker(httpClient).check(buildConfig.versionName)
-            }
-        }
+private fun rememberAvailableUpdate(notificationManager: DesktopNotificationManager): AppUpdateRelease? {
+    val manager = koinInject<AppUpdateManager>()
+    val state by manager.state.collectAsState()
+    LaunchedEffect(manager) { if (System.getenv("FLATPAK_ID") == null) manager.checkIfStale() }
+    val release = (state as? AppUpdateState.Available)?.release
 
-    LaunchedEffect(updateInfo) {
-        updateInfo?.let { update ->
+    LaunchedEffect(release?.versionCode) {
+        release?.let { update ->
             notificationManager.dispatch(
                 Notification(
                     title = getString(Res.string.desktop_update_available_title),
-                    message = getString(Res.string.desktop_update_available_message, update.versionName),
+                    message = getString(Res.string.desktop_update_available_message, update.title),
                     category = Notification.Category.Service,
                 ),
             )
         }
     }
-    return updateInfo
+    return release
 }
 
 // ----- Window bounds persistence -----

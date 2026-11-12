@@ -1,0 +1,69 @@
+name: Fork release – Windows installers
+
+# Attaches the Windows desktop installers to a fork release. Releases are tagged `fork-v<versionCode>`
+# (versionCode = git commit count + VERSION_CODE_OFFSET); the in-app updater (Settings → App update)
+# compares that number with the running build. The Android APK is uploaded to the same release separately.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing fork release tag, e.g. fork-v29323100'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    if: startsWith(github.event.release.tag_name || inputs.tag, 'fork-v')
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+          filter: 'blob:none'
+          submodules: true
+
+      - name: Gradle Setup
+        uses: ./.github/actions/gradle-setup
+        with:
+          cache_read_only: 'false'
+
+      # Windows Installer upgrades an install in place only when the version rises, so the installer
+      # version carries the commit count: <major>.<minor>.<count>.
+      - name: Work out the installer version
+        shell: bash
+        run: |
+          base=$(grep '^VERSION_NAME_BASE=' config.properties | cut -d= -f2)
+          count=$(git rev-list --count HEAD)
+          echo "PACKAGE_VERSION=$(echo "$base" | cut -d. -f1-2).$count" >> "$GITHUB_ENV"
+
+      # Same flags as the release workflow's Windows leg: CMP's WiX packaging needs isolated projects
+      # and the configuration cache off; -P flags are quoted for PowerShell.
+      - name: Package Windows installers
+        run: >
+          ./gradlew :desktopApp:packageReleaseDistributionForCurrentOS
+          '-PaboutLibraries.release=true' '-Pdesktop.release=true'
+          "-Pdesktop.packageVersion=${{ env.PACKAGE_VERSION }}" --no-daemon
+          --no-isolated-projects --no-configuration-cache
+
+      - name: Attach installers to the release
+        shell: bash
+        run: |
+          out=desktopApp/build/compose/binaries/main-release
+          cp "$(ls $out/exe/*.exe | head -1)" "Meshtastic-Desktop-$TAG-windows.exe"
+          cp "$(ls $out/msi/*.msi | head -1)" "Meshtastic-Desktop-$TAG-windows.msi"
+          gh release upload "$TAG" "Meshtastic-Desktop-$TAG-windows.exe" "Meshtastic-Desktop-$TAG-windows.msi" \
+            --repo "$GITHUB_REPOSITORY" --clobber

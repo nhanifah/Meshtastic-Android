@@ -308,7 +308,9 @@ compose.desktop {
             // Reuse the resolved version from the top of this script (mirrors app/build.gradle.kts).
             // Native installers require strict numeric semantic versions (X.Y.Z) without suffixes.
             val sanitizedVersion = Regex("^\\d+\\.\\d+\\.\\d+").find(versionInfo.versionName)?.value ?: "1.0.0"
-            packageVersion = sanitizedVersion
+            // Fork builds pass -Pdesktop.packageVersion=X.Y.<commit count> so every build has a higher installer
+            // version than the last; Windows Installer only upgrades an install in place when the version rises.
+            packageVersion = providers.gradleProperty("desktop.packageVersion").orNull ?: sanitizedVersion
 
             description = "Meshtastic Desktop Application"
             vendor = "Meshtastic LLC"

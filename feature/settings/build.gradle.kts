@@ -42,6 +42,7 @@ kotlin {
             implementation(libs.kotlinx.collections.immutable)
             implementation(libs.aboutlibraries.compose.m3)
             implementation(libs.coil)
+            implementation(libs.ktor.client.core)
         }
 
         androidMain.dependencies { implementation(libs.androidx.appcompat) }

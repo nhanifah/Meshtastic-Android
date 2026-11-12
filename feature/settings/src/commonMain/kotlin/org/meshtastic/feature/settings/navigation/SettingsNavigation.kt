@@ -51,6 +51,8 @@ import org.meshtastic.feature.settings.NodeListScreen
 import org.meshtastic.feature.settings.SettingsViewModel
 import org.meshtastic.feature.settings.appfunctions.AppFunctionsSettingsScreen
 import org.meshtastic.feature.settings.appfunctions.AppFunctionsSettingsViewModel
+import org.meshtastic.feature.settings.appupdate.AppUpdateScreen
+import org.meshtastic.feature.settings.appupdate.AppUpdateViewModel
 import org.meshtastic.feature.settings.debugging.DebugScreen
 import org.meshtastic.feature.settings.debugging.DebugViewModel
 import org.meshtastic.feature.settings.filter.FilterSettingsScreen
@@ -411,6 +413,13 @@ fun EntryProviderScope<NavKey>.settingsGraph(
     }
 
     entry<SettingsRoute.TakServer> { TakServerScreen(onBack = dropUnlessResumed { backStack.removeLastOrNull() }) }
+
+    entry<SettingsRoute.AppUpdate> {
+        AppUpdateScreen(
+            viewModel = koinViewModel<AppUpdateViewModel>(),
+            onBack = dropUnlessResumed { backStack.removeLastOrNull() },
+        )
+    }
 
     entry<SettingsRoute.DebugPanel> {
         val viewModel: DebugViewModel = koinViewModel()

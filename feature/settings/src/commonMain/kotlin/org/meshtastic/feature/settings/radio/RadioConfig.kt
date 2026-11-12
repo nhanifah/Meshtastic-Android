@@ -19,17 +19,10 @@ package org.meshtastic.feature.settings.radio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.DrawableResource
@@ -66,8 +59,6 @@ import org.meshtastic.core.resources.import_configuration
 import org.meshtastic.core.resources.message_device_managed
 import org.meshtastic.core.resources.module_settings
 import org.meshtastic.core.resources.nodedb_reset
-import org.meshtastic.core.resources.range_test_entry_desc
-import org.meshtastic.core.resources.range_test_locked_title
 import org.meshtastic.core.resources.reboot
 import org.meshtastic.core.resources.reboot_into_dfu
 import org.meshtastic.core.resources.restore_app_database
@@ -80,7 +71,6 @@ import org.meshtastic.core.ui.icon.AppSettingsAlt
 import org.meshtastic.core.ui.icon.BugReport
 import org.meshtastic.core.ui.icon.ChevronRight
 import org.meshtastic.core.ui.icon.CleaningServices
-import org.meshtastic.core.ui.icon.Distance
 import org.meshtastic.core.ui.icon.Download
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.PermScanWifi
@@ -108,7 +98,10 @@ fun RadioConfigItemList(
     val readable = radioConfigRowsReadable(state.connected, state.isLocal, waiting, isManaged)
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        if (state.isLocal) RangeTestEntryCard(onClick = { onNavigate(RangeTestRoute.RangeTestHome) })
+        if (state.isLocal) {
+            RangeTestEntryCard(onClick = { onNavigate(RangeTestRoute.RangeTestHome) })
+            AppUpdateEntryCard(onClick = { onNavigate(SettingsRoute.AppUpdate) })
+        }
 
         ExpressiveSection(title = stringResource(Res.string.configuration)) {
             if (isManaged) {
@@ -313,23 +306,4 @@ private fun ManagedMessage() {
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         color = MaterialTheme.colorScheme.error,
     )
-}
-
-/** The dedicated Range Test entry: a prominent card at the top of Settings, separate from the radio's own modules. */
-@Composable
-private fun RangeTestEntryCard(onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(MeshtasticIcons.Distance, contentDescription = null, modifier = Modifier.size(32.dp))
-            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                Text(stringResource(Res.string.range_test_locked_title), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(Res.string.range_test_entry_desc), style = MaterialTheme.typography.bodyMedium)
-            }
-            Icon(MeshtasticIcons.ChevronRight, contentDescription = null)
-        }
-    }
 }

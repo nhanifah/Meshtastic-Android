@@ -188,6 +188,9 @@ sealed interface SettingsRoute : Route {
 
     @Serializable data object TakServer : SettingsRoute
 
+    /** Checks this build's GitHub releases and installs a newer build. */
+    @Serializable data object AppUpdate : SettingsRoute
+
     @Serializable data object DebugPanel : SettingsRoute
 
     @Serializable data object About : SettingsRoute

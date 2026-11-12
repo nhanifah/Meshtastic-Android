@@ -95,6 +95,9 @@
     <!-- NFC permission for sharing channels and contacts -->
     <uses-permission android:name="android.permission.NFC" />
 
+    <!-- In-app updates: hand a downloaded APK of a newer build to the system installer (Settings → App update). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -465,6 +468,17 @@
                 <action android:name="com.atakmap.app.component" />
             </intent-filter>
         </activity>
+
+        <!-- Serves the downloaded update APK to the package installer (AndroidAppUpdateInstaller). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.appupdate"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/app_update_paths" />
+        </provider>
 
         <provider
             android:name="androidx.startup.InitializationProvider"
