@@ -127,6 +127,7 @@ import org.meshtastic.core.resources.meshtastic_app_name
 import org.meshtastic.core.resources.no_local_stats
 import org.meshtastic.core.resources.notification_reaction_to
 import org.meshtastic.core.resources.powered
+import org.meshtastic.core.resources.range_test_notification_running
 import org.meshtastic.core.resources.reply
 import org.meshtastic.core.resources.unknown_username
 import org.meshtastic.core.resources.you
@@ -1589,7 +1590,8 @@ class MeshNotificationManagerImpl(
 /**
  * The notification title for the most significant operation in flight, or null when none is.
  *
- * Firmware work outranks a discovery scan: it is the one the user must not interrupt.
+ * Firmware work outranks a discovery scan, which outranks a range test: firmware is the one the user must not
+ * interrupt.
  */
 internal fun Set<RadioOperation>.notificationTitleResource(): StringResource? = when {
     isEmpty() -> null
@@ -1597,7 +1599,9 @@ internal fun Set<RadioOperation>.notificationTitleResource(): StringResource? = 
     contains(RadioOperation.FirmwareUpdate) || contains(RadioOperation.FirmwareMaintenance) ->
         Res.string.firmware_update_in_progress
 
-    else -> Res.string.discovery_scan_in_progress
+    contains(RadioOperation.DiscoveryScan) -> Res.string.discovery_scan_in_progress
+
+    else -> Res.string.range_test_notification_running
 }
 
 /** Emits 0 at once, then the next count every [period]. */

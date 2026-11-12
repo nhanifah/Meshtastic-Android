@@ -51,6 +51,12 @@ enum class RadioOperation(val suppressesTransport: Boolean) {
 
     /** A Local Mesh Discovery preset sweep. Needs the transport, so it must never suppress it. */
     DiscoveryScan(suppressesTransport = false),
+
+    /**
+     * A range test sending or recording beacons. Needs the transport; held so the CPU stays awake with the screen off,
+     * since the beacon timer and the missed-beacon clock both stall while the phone sleeps.
+     */
+    RangeTest(suppressesTransport = false),
 }
 
 /**

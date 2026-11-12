@@ -20,6 +20,7 @@ import org.meshtastic.core.common.state.RadioOperation
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.discovery_scan_in_progress
 import org.meshtastic.core.resources.firmware_update_in_progress
+import org.meshtastic.core.resources.range_test_notification_running
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -61,6 +62,22 @@ class NotificationTitleResourceTest {
         assertEquals(
             Res.string.firmware_update_in_progress,
             setOf(RadioOperation.DiscoveryScan, RadioOperation.FirmwareUpdate).notificationTitleResource(),
+        )
+    }
+
+    @Test
+    fun rangeTestIsReported() {
+        assertEquals(
+            Res.string.range_test_notification_running,
+            setOf(RadioOperation.RangeTest).notificationTitleResource(),
+        )
+    }
+
+    @Test
+    fun aScanOutranksARangeTest() {
+        assertEquals(
+            Res.string.discovery_scan_in_progress,
+            setOf(RadioOperation.RangeTest, RadioOperation.DiscoveryScan).notificationTitleResource(),
         )
     }
 }

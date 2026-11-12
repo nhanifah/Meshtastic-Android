@@ -1859,6 +1859,7 @@
     <string name="range_test_no_extra_channels">No extra channels on this radio yet.</string>
     <string name="range_test_no_node_match">No node matches the search.</string>
     <string name="range_test_no_sessions">No recorded sessions yet</string>
+    <string name="range_test_notification_running">Range test running…</string>
     <string name="range_test_open">Open</string>
     <string name="range_test_open_map">Open map</string>
     <string name="range_test_paste_code">Or paste the channel link</string>

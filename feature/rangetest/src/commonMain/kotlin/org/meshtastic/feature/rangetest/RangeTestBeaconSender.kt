@@ -20,6 +20,7 @@ import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +37,8 @@ import kotlinx.coroutines.sync.withLock
 import okio.ByteString
 import org.koin.core.annotation.Single
 import org.meshtastic.core.common.di.ApplicationCoroutineScope
+import org.meshtastic.core.common.state.RadioOperation
+import org.meshtastic.core.common.state.RadioOperationLock
 import org.meshtastic.core.common.util.nowMillis
 import org.meshtastic.core.database.dao.RangeTestDao
 import org.meshtastic.core.database.entity.RangeTestSessionEntity
@@ -114,6 +117,7 @@ class RangeTestBeaconSender(
     private val commandSender: CommandSender,
     private val serviceRepository: ServiceRepository,
     private val rangeTestDao: RangeTestDao,
+    private val radioOperationLock: RadioOperationLock,
     private val applicationScope: ApplicationCoroutineScope,
     dispatchers: CoroutineDispatchers,
 ) {
@@ -163,15 +167,20 @@ class RangeTestBeaconSender(
             )
         job =
             applicationScope.launch(serial) {
-                launch { saveCounts(sessionId) }
-                if (safeConfig.mode == RangeTestBeaconMode.MESSAGE) launch { collectAcks(safeConfig.destNum) }
-                sendLoop(safeConfig)
-                sendEnd(safeConfig)
-                stateFlow.update { it.copy(finished = true) }
-                // Give the last beacon's confirmation time to arrive before the run is closed.
-                delay(LAST_ACK_WAIT_MS)
-                mutex.withLock { finishSession() }
-                currentCoroutineContext().cancelChildren()
+                // Keeps an Android phone's CPU awake with the screen off, or the beacon timer stalls.
+                radioOperationLock.withOperation(RadioOperation.RangeTest) {
+                    coroutineScope {
+                        launch { saveCounts(sessionId) }
+                        if (safeConfig.mode == RangeTestBeaconMode.MESSAGE) launch { collectAcks(safeConfig.destNum) }
+                        sendLoop(safeConfig)
+                        sendEnd(safeConfig)
+                        stateFlow.update { it.copy(finished = true) }
+                        // Give the last beacon's confirmation time to arrive before the run is closed.
+                        delay(LAST_ACK_WAIT_MS)
+                        mutex.withLock { finishSession() }
+                        currentCoroutineContext().cancelChildren()
+                    }
+                }
             }
     }
 

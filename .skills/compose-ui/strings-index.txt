@@ -1796,6 +1796,7 @@ range_test_next
 range_test_no_extra_channels
 range_test_no_node_match
 range_test_no_sessions
+range_test_notification_running
 range_test_open
 range_test_open_map
 range_test_paste_code

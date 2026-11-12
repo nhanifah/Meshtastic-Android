@@ -19,6 +19,7 @@ package org.meshtastic.feature.rangetest
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +38,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.koin.core.annotation.Single
 import org.meshtastic.core.common.di.ApplicationCoroutineScope
+import org.meshtastic.core.common.state.RadioOperation
+import org.meshtastic.core.common.state.RadioOperationLock
 import org.meshtastic.core.common.util.latLongToMeter
 import org.meshtastic.core.common.util.nowMillis
 import org.meshtastic.core.database.dao.RangeTestDao
@@ -103,6 +106,7 @@ class RangeTestRecorder(
     private val nodeRepository: NodeRepository,
     private val phoneLocationProvider: PhoneLocationProvider,
     private val rangeTestDao: RangeTestDao,
+    private val radioOperationLock: RadioOperationLock,
     private val applicationScope: ApplicationCoroutineScope,
     dispatchers: CoroutineDispatchers,
 ) {
@@ -143,17 +147,22 @@ class RangeTestRecorder(
             )
         job =
             applicationScope.launch(serial) {
-                val targetPosition = MutableStateFlow(position)
-                launch { trackFixes() }
-                launch { trackTargetPosition(sessionId, target.num, targetPosition) }
-                launch { recordTrack(sessionId) }
-                launch { watchOverdue(sessionId, targetPosition) }
-                serviceRepository.meshPacketFlow
-                    .filter { it.from == target.num }
-                    .collect { packet ->
-                        val beacon = RangeTestBeacon.parse(packet) ?: return@collect
-                        onBeacon(sessionId, packet, beacon, targetPosition.value)
+                // Keeps an Android phone's CPU awake with the screen off, so overdue beacons are counted on time.
+                radioOperationLock.withOperation(RadioOperation.RangeTest) {
+                    coroutineScope {
+                        val targetPosition = MutableStateFlow(position)
+                        launch { trackFixes() }
+                        launch { trackTargetPosition(sessionId, target.num, targetPosition) }
+                        launch { recordTrack(sessionId) }
+                        launch { watchOverdue(sessionId, targetPosition) }
+                        serviceRepository.meshPacketFlow
+                            .filter { it.from == target.num }
+                            .collect { packet ->
+                                val beacon = RangeTestBeacon.parse(packet) ?: return@collect
+                                onBeacon(sessionId, packet, beacon, targetPosition.value)
+                            }
                     }
+                }
             }
     }
 
