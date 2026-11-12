@@ -58,41 +58,38 @@ class RangeTestChannels(
     val channels: Flow<List<RangeTestChannelOption>> =
         radioConfigRepository.channelSetFlow.map { set -> set.toOptions() }
 
-    /** The index of the channel named [name], creating it with a fresh random key in a free slot when missing. */
+    /**
+     * The index of the channel named [name], creating it with a fresh random key in a free slot when missing. Extra
+     * slots with the same name (left over from earlier tests) are removed so only one remains.
+     */
     suspend fun ensureChannel(name: String = DEFAULT_NAME): Int {
-        val set = radioConfigRepository.channelSetFlow.first()
-        set.settings
-            .indexOfFirst { it.name == name }
-            .takeIf { it >= 0 }
-            ?.let {
-                return it
-            }
+        val old = currentSettings()
+        if (old.firstOrNull()?.name == name) return 0
+        val existing = old.indices.firstOrNull { it > 0 && old[it].name == name }
         val settings =
-            ChannelSettings.Builder()
-                .also { wb ->
-                    wb.name = name
-                    wb.psk = ModelChannel.getRandomKey()
-                }
-                .build()
-        return addChannel(set, settings)
+            if (existing != null) {
+                old[existing]
+            } else {
+                ChannelSettings.Builder()
+                    .also { wb ->
+                        wb.name = name
+                        wb.psk = ModelChannel.getRandomKey()
+                    }
+                    .build()
+            }
+        return apply(old, withSingleChannel(old, settings))
     }
 
     /**
-     * Joins the channel in a scanned code: reuses a slot that already has the same name and key, otherwise adds it to a
-     * free secondary slot. Returns the channel index.
+     * Joins the channel in a scanned code. A slot with the same name is overwritten with the scanned key (instead of
+     * adding a second channel of that name); otherwise the channel goes into a free secondary slot. Returns its index.
      */
     suspend fun joinFromCode(code: String): Int {
         val shared =
             runCatching { CommonUri.parse(code.trim()).toChannelSet() }.getOrNull()?.settings?.firstOrNull()
                 ?: throw RangeTestChannelException(RangeTestChannelException.Reason.INVALID_CODE)
-        val set = radioConfigRepository.channelSetFlow.first()
-        set.settings
-            .indexOfFirst { it.name == shared.name && it.psk == shared.psk }
-            .takeIf { it >= 0 }
-            ?.let {
-                return it
-            }
-        return addChannel(set, shared)
+        val old = currentSettings()
+        return apply(old, withSingleChannel(old, shared))
     }
 
     /** A Meshtastic channel link holding only [settings], for the QR code the other radio scans. */
@@ -104,18 +101,30 @@ class RangeTestChannels(
 
     /** Removes the secondary channel at [index]; channels after it move up one slot. */
     suspend fun removeChannel(index: Int) {
-        if (index <= 0) return
-        val old = radioConfigRepository.channelSetFlow.first().settings
-        if (index > old.lastIndex) return
-        val new = old.filterIndexed { i, _ -> i != index }
-        getChannelList(new, old).forEach { radioController.setLocalChannel(it) }
+        val old = currentSettings()
+        if (index <= 0 || index > old.lastIndex) return
+        write(old, old.filterIndexed { i, _ -> i != index })
     }
 
-    private suspend fun addChannel(set: ChannelSet, settings: ChannelSettings): Int {
-        val index = set.settings.size
-        if (index >= MAX_CHANNELS) throw RangeTestChannelException(RangeTestChannelException.Reason.NO_FREE_SLOT)
-        getChannelList(set.settings + settings, set.settings).forEach { radioController.setLocalChannel(it) }
-        return index
+    private suspend fun currentSettings(): List<ChannelSettings> = radioConfigRepository.channelSetFlow.first().settings
+
+    /** Writes [plan] when it changes anything and returns the range-test channel's index. */
+    private suspend fun apply(old: List<ChannelSettings>, plan: ChannelPlan): Int {
+        if (plan.settings.size > MAX_CHANNELS) {
+            throw RangeTestChannelException(RangeTestChannelException.Reason.NO_FREE_SLOT)
+        }
+        if (plan.settings != old) write(old, plan.settings)
+        return plan.index
+    }
+
+    /**
+     * Sends only the changed slots to the radio, then replaces the cached channel list. The cache has to be replaced
+     * explicitly: a single-slot write never shrinks it (a disabled slot is skipped), which is what left a removed
+     * channel on screen and let it be "found" again.
+     */
+    private suspend fun write(old: List<ChannelSettings>, new: List<ChannelSettings>) {
+        getChannelList(new, old).sortedBy { it.index }.forEach { radioController.setLocalChannel(it) }
+        radioConfigRepository.replaceAllSettings(new)
     }
 
     private fun ChannelSet.toOptions(): List<RangeTestChannelOption> {
@@ -133,5 +142,33 @@ class RangeTestChannels(
     companion object {
         const val DEFAULT_NAME = "rangeTest"
         private const val MAX_CHANNELS = 8
+
+        /**
+         * [old] with exactly one channel named like [settings]: the first slot of that name takes [settings] (or it is
+         * appended when there is none) and later slots of the same name are dropped. The primary slot is never touched.
+         */
+        internal fun withSingleChannel(old: List<ChannelSettings>, settings: ChannelSettings): ChannelPlan {
+            val result = mutableListOf<ChannelSettings>()
+            var index = -1
+            old.forEachIndexed { i, slot ->
+                when {
+                    i == 0 || slot.name != settings.name -> result += slot
+
+                    index < 0 -> {
+                        index = result.size
+                        result += settings
+                    }
+                    // A later slot with the same name is a leftover duplicate: dropped.
+                }
+            }
+            if (index < 0) {
+                index = result.size
+                result += settings
+            }
+            return ChannelPlan(result, index)
+        }
     }
 }
+
+/** The channel list to write and where the range-test channel sits in it. */
+internal data class ChannelPlan(val settings: List<ChannelSettings>, val index: Int)
