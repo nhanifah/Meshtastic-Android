@@ -1771,6 +1771,7 @@ range_test_hub_intro
 range_test_in_progress
 range_test_include_relayed
 range_test_interval
+range_test_interval_fast_hint
 range_test_join
 range_test_keep_connected
 range_test_last_beacon

@@ -71,6 +71,7 @@ import org.meshtastic.core.resources.range_test_clear_search
 import org.meshtastic.core.resources.range_test_duration
 import org.meshtastic.core.resources.range_test_heard_ago
 import org.meshtastic.core.resources.range_test_interval
+import org.meshtastic.core.resources.range_test_interval_fast_hint
 import org.meshtastic.core.resources.range_test_join
 import org.meshtastic.core.resources.range_test_keep_connected
 import org.meshtastic.core.resources.range_test_location_intro
@@ -404,6 +405,9 @@ private fun BeaconStep(state: RangeTestWizardState, actions: WizardActions, modi
                     label = { Text(stringResource(Res.string.range_test_seconds, seconds)) },
                 )
             }
+        }
+        if (state.intervalSec < RangeTestSenderConfig.FAST_INTERVAL_SEC) {
+            Hint(stringResource(Res.string.range_test_interval_fast_hint))
         }
         SectionLabel(stringResource(Res.string.range_test_duration))
         ChipRow {

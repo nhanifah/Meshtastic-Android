@@ -1834,6 +1834,7 @@
     <string name="range_test_in_progress">In progress</string>
     <string name="range_test_include_relayed">Include relayed</string>
     <string name="range_test_interval">Send a beacon every</string>
+    <string name="range_test_interval_fast_hint">Beacons this fast take up most of the channel, so some get dropped or delayed. Use "Direct only" below with a fast modem preset, and keep the run short.</string>
     <string name="range_test_join">Join</string>
     <string name="range_test_keep_connected">Keep this phone connected to the radio, with the app open, while the test runs.</string>
     <string name="range_test_last_beacon">Last beacon</string>

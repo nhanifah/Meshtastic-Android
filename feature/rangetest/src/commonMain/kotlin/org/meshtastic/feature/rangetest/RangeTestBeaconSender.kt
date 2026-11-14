@@ -79,8 +79,11 @@ data class RangeTestSenderConfig(
 ) {
     companion object {
         const val DEFAULT_INTERVAL_SEC = 15
-        const val MIN_INTERVAL_SEC = 10
-        val INTERVALS_SEC = listOf(10, 15, 30, 60)
+        const val MIN_INTERVAL_SEC = 2
+
+        /** Below this a beacon train takes up much of the channel's airtime; the wizard says so. */
+        const val FAST_INTERVAL_SEC = 10
+        val INTERVALS_SEC = listOf(2, 10, 15, 30, 60)
         val DURATIONS_MIN = listOf(15, 30, 60)
     }
 }
