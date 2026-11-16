@@ -18,6 +18,7 @@
 import com.android.build.api.dsl.ApplicationExtension
 import org.meshtastic.buildlogic.configProperties
 import org.meshtastic.buildlogic.resolveVersionInfo
+import java.io.File
 import java.util.Properties
 
 /*
@@ -55,8 +56,13 @@ configure<ApplicationExtension> {
         create("release") {
             keyAlias = keystoreProperties["keyAlias"] as String?
             keyPassword = keystoreProperties["keyPassword"] as String?
+            // Same keystore as the phone app (the Data Layer only pairs apps with the same signature). A relative
+            // path in keystore.properties is relative to :androidApp, as the phone build reads it.
             storeFile =
-                keystoreProperties["storeFile"]?.let { isolated.rootProject.projectDirectory.file(it as String).asFile }
+                (keystoreProperties["storeFile"] as String?)?.let { path ->
+                    File(path).takeIf { it.isAbsolute }
+                        ?: isolated.rootProject.projectDirectory.dir("androidApp").file(path).asFile
+                }
             storePassword = keystoreProperties["storePassword"] as String?
         }
     }
