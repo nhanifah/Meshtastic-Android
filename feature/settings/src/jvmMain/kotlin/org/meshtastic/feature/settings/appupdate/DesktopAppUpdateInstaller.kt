@@ -26,18 +26,30 @@ import kotlin.system.exitProcess
 
 /**
  * Desktop half of the updater. On Windows it downloads the `.exe` installer (or `.msi`), starts it and quits so the
- * installer can replace the app's files; the installer upgrades the existing install in place. On macOS and Linux it
- * opens the release page instead.
+ * installer can replace the app's files; the installer upgrades the existing install in place. On an Apple Silicon Mac
+ * it downloads the `.dmg` and opens it, so the new app can be dragged over the old one. Elsewhere it opens the release
+ * page instead.
  */
 @Single(binds = [AppUpdateInstaller::class])
 class DesktopAppUpdateInstaller(private val httpClient: HttpClient) : AppUpdateInstaller {
 
-    private val isWindows = System.getProperty("os.name").orEmpty().lowercase().contains("win")
+    private val osName = System.getProperty("os.name").orEmpty().lowercase()
+    private val isWindows = osName.contains("win")
+    private val isAppleSilicon =
+        osName.contains("mac") && System.getProperty("os.arch").orEmpty().lowercase() in setOf("aarch64", "arm64")
 
-    override fun pickAsset(release: AppUpdateRelease): AppUpdateAsset? {
-        if (!isWindows) return null
-        return release.assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
-            ?: release.assets.firstOrNull { it.name.endsWith(".msi", ignoreCase = true) }
+    override fun pickAsset(release: AppUpdateRelease): AppUpdateAsset? = when {
+        isWindows ->
+            release.assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
+                ?: release.assets.firstOrNull { it.name.endsWith(".msi", ignoreCase = true) }
+
+        // Only Apple Silicon disk images are built.
+        isAppleSilicon ->
+            release.assets.firstOrNull {
+                it.name.endsWith(".dmg", ignoreCase = true) && it.name.contains("arm64", ignoreCase = true)
+            }
+
+        else -> null
     }
 
     override suspend fun download(asset: AppUpdateAsset, onProgress: (Float?) -> Unit): DownloadedUpdate {
@@ -46,17 +58,26 @@ class DesktopAppUpdateInstaller(private val httpClient: HttpClient) : AppUpdateI
         return DownloadedUpdate(file.absolutePath, asset)
     }
 
-    override suspend fun install(update: DownloadedUpdate): AppUpdateInstallResult {
-        if (!isWindows) {
-            openPage(AppUpdateConfig.RELEASES_PAGE)
-            return AppUpdateInstallResult.OPENED_IN_BROWSER
+    override suspend fun install(update: DownloadedUpdate): AppUpdateInstallResult = when {
+        isAppleSilicon && update.path.endsWith(".dmg", ignoreCase = true) -> {
+            // Mounts the image and shows it in Finder; the app keeps running until the user replaces it.
+            ProcessBuilder("open", update.path).start()
+            AppUpdateInstallResult.STARTED
         }
-        val command =
-            if (update.path.endsWith(".msi", ignoreCase = true)) {
-                listOf("msiexec", "/i", update.path)
-            } else {
-                listOf(update.path)
-            }
+
+        isWindows -> {
+            runWindowsInstaller(update.path)
+            AppUpdateInstallResult.STARTED
+        }
+
+        else -> {
+            openPage(AppUpdateConfig.RELEASES_PAGE)
+            AppUpdateInstallResult.OPENED_IN_BROWSER
+        }
+    }
+
+    private fun runWindowsInstaller(path: String) {
+        val command = if (path.endsWith(".msi", ignoreCase = true)) listOf("msiexec", "/i", path) else listOf(path)
         ProcessBuilder(command).inheritIO().start()
         Logger.i { "Update installer started; quitting so it can replace the app" }
         // Give the installer a moment to come up before the files it replaces are released.
@@ -66,7 +87,6 @@ class DesktopAppUpdateInstaller(private val httpClient: HttpClient) : AppUpdateI
         }
             .apply { isDaemon = true }
             .start()
-        return AppUpdateInstallResult.STARTED
     }
 
     override fun openPage(url: String) {

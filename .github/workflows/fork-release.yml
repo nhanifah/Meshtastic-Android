@@ -1,6 +1,6 @@
-name: Fork release – Windows installers
+name: Fork release – desktop installers
 
-# Attaches the Windows desktop installers to a fork release. Releases are tagged `fork-v<versionCode>`
+# Attaches the desktop installers (Windows .exe/.msi, macOS Apple Silicon .dmg) to a fork release. Releases are tagged `fork-v<versionCode>`
 # (versionCode = git commit count + VERSION_CODE_OFFSET); the in-app updater (Settings → App update)
 # compares that number with the running build. The Android APK is uploaded to the same release separately.
 on:
@@ -67,3 +67,46 @@ jobs:
           cp "$(ls $out/msi/*.msi | head -1)" "Meshtastic-Desktop-$TAG-windows.msi"
           gh release upload "$TAG" "Meshtastic-Desktop-$TAG-windows.exe" "Meshtastic-Desktop-$TAG-windows.msi" \
             --repo "$GITHUB_REPOSITORY" --clobber
+
+  # Apple Silicon (M1–M4) disk image. Unsigned: no Apple Developer ID on this fork, so a copy downloaded in a
+  # browser needs right-click → Open (or `xattr -dr com.apple.quarantine`) the first time.
+  macos:
+    if: startsWith(github.event.release.tag_name || inputs.tag, 'fork-v')
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+          filter: 'blob:none'
+          submodules: true
+
+      - name: Gradle Setup
+        uses: ./.github/actions/gradle-setup
+        with:
+          cache_read_only: 'false'
+
+      - name: Work out the installer version
+        run: |
+          base=$(grep '^VERSION_NAME_BASE=' config.properties | cut -d= -f2)
+          count=$(git rev-list --count HEAD)
+          echo "PACKAGE_VERSION=$(echo "$base" | cut -d. -f1-2).$count" >> "$GITHUB_ENV"
+
+      - name: Package macOS disk image
+        run: >
+          ./gradlew :desktopApp:packageReleaseDistributionForCurrentOS
+          -PaboutLibraries.release=true -Pdesktop.release=true
+          -Pdesktop.packageVersion=${{ env.PACKAGE_VERSION }} --no-daemon
+          --no-isolated-projects --no-configuration-cache
+
+      - name: Attach disk image to the release
+        run: |
+          [ "$(uname -m)" = arm64 ] || { echo "expected an Apple Silicon runner, got $(uname -m)"; exit 1; }
+          cp "$(ls desktopApp/build/compose/binaries/main-release/dmg/*.dmg | head -1)" \
+            "Meshtastic-Desktop-$TAG-macos-arm64.dmg"
+          gh release upload "$TAG" "Meshtastic-Desktop-$TAG-macos-arm64.dmg" --repo "$GITHUB_REPOSITORY" --clobber
