@@ -356,6 +356,9 @@ dependencies {
     debugImplementation(libs.leakcanary.android)
 
     googleImplementation(libs.location.services)
+    // Data Layer bridge to the Wear OS app (:wearApp); GMS-only, so google flavor only.
+    googleImplementation(libs.play.services.wearable)
+    googleImplementation(libs.kotlinx.coroutines.play.services)
     googleImplementation(libs.play.services.maps)
     // ARCore for the device model viewer; proprietary, so google only. Same exclusions as feature/node's sceneview.
     googleImplementation("io.github.sceneview:arsceneview:${libs.versions.sceneview.get()}") {

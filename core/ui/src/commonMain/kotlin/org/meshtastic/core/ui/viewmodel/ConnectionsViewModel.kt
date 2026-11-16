@@ -324,6 +324,7 @@ private fun InterfaceId.toFirmwareUpdateTransport(): FirmwareUpdateTransport? = 
 
     InterfaceId.MOCK,
     InterfaceId.NOP,
+    InterfaceId.PHONE,
     InterfaceId.REPLAY,
     -> null
 }

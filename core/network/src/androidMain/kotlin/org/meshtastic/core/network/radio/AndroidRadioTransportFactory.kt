@@ -31,6 +31,7 @@ import org.meshtastic.core.di.CoroutineDispatchers
 import org.meshtastic.core.model.DeviceType
 import org.meshtastic.core.model.InterfaceId
 import org.meshtastic.core.network.repository.UsbRepository
+import org.meshtastic.core.repository.PhoneRelayLink
 import org.meshtastic.core.repository.RadioInterfaceService
 import org.meshtastic.core.repository.RadioTransport
 import org.meshtastic.core.repository.RadioTransportFactory
@@ -50,6 +51,8 @@ class AndroidRadioTransportFactory(
     bluetoothRepository: BluetoothRepository,
     connectionFactory: BleConnectionFactory,
     dispatchers: CoroutineDispatchers,
+    /** Bound only by the Wear OS app, where `w` reaches the radio through the paired phone. */
+    private val phoneRelayLink: PhoneRelayLink? = null,
 ) : BaseRadioTransportFactory(scanner, bluetoothRepository, connectionFactory, dispatchers) {
 
     override val supportedDeviceTypes: List<DeviceType> = listOf(DeviceType.BLE, DeviceType.TCP, DeviceType.USB)
@@ -87,7 +90,11 @@ class AndroidRadioTransportFactory(
 
     // Presence and USB permission are left to SerialRadioTransport, which reports a denied permission to the user.
     override fun isPlatformAddressValid(address: String): Boolean =
-        address.firstOrNull()?.let { InterfaceId.forIdChar(it) } == InterfaceId.NOP
+        when (address.firstOrNull()?.let { InterfaceId.forIdChar(it) }) {
+            InterfaceId.NOP -> true
+            InterfaceId.PHONE -> phoneRelayLink != null
+            else -> false
+        }
 
     override fun createPlatformTransport(address: String, service: RadioInterfaceService): RadioTransport {
         val interfaceId = address.firstOrNull()?.let { InterfaceId.forIdChar(it) }
@@ -115,6 +122,10 @@ class AndroidRadioTransportFactory(
                     address = rest,
                 )
 
+            InterfaceId.PHONE ->
+                phoneRelayLink?.let { PhoneRelayRadioTransport(service, service.serviceScope, it) }
+                    ?: NopRadioTransport(rest)
+
             InterfaceId.NOP,
             null,
             -> NopRadioTransport(rest)
@@ -130,10 +141,11 @@ class AndroidRadioTransportFactory(
      * the entry still yields a working virtual device.
      */
     private fun createReplayTransport(service: RadioInterfaceService, rest: String): RadioTransport {
-        val replayFrames =
-            runCatching { context.assets.open(REPLAY_ASSET_NAME).use { it.readBytes() } }
-                .getOrNull()
-                ?.takeIf { it.isNotEmpty() }
+        val replayFrames = runCatching {
+            context.assets.open(REPLAY_ASSET_NAME).use { it.readBytes() }
+        }
+            .getOrNull()
+            ?.takeIf { it.isNotEmpty() }
         return if (replayFrames != null) {
             Logger.i { "Replay device → replaying $REPLAY_ASSET_NAME (${replayFrames.size} bytes)" }
             ReplayRadioTransport(

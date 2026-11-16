@@ -33,6 +33,7 @@ enum class DeviceType {
                 InterfaceId.TCP -> TCP
 
                 InterfaceId.NOP,
+                InterfaceId.PHONE,
                 InterfaceId.MOCK,
                 InterfaceId.REPLAY,
                 null,

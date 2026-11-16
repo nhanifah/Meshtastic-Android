@@ -62,7 +62,10 @@ class BundledSqliteGuardTest {
             add("org.meshtastic.core.nfc.MeshtasticHostApduService")
             add("org.meshtastic.feature.widget.LocalStatsWidgetReceiver")
             add("org.meshtastic.feature.widget.NodeTrackerWidgetReceiver")
-            if (BuildConfig.FLAVOR == "google") add("org.meshtastic.app.ai.appfunctions.MeshtasticAppFunctionService")
+            if (BuildConfig.FLAVOR == "google") {
+                add("org.meshtastic.app.ai.appfunctions.MeshtasticAppFunctionService")
+                add("org.meshtastic.app.wear.WearBridgeListenerService")
+            }
             // Each clone slot's radio service is a MeshService of its own and goes down with the main one.
             (1..BuildConfig.CLONE_SLOTS).forEach { add("org.meshtastic.app.clone.CloneMeshService$it") }
         }

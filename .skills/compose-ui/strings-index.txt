@@ -2342,6 +2342,36 @@ waypoint_delete
 waypoint_edit
 waypoint_new
 waypoint_received
+### WEAR ###
+wear_aim_hint
+wear_beacon_every
+wear_keyboard
+wear_link_choose
+wear_link_direct
+wear_link_direct_desc
+wear_link_disconnect
+wear_link_no_phone
+wear_link_no_radio
+wear_link_searching
+wear_link_via_phone
+wear_link_via_phone_desc
+wear_no_conversations
+wear_no_nodes
+wear_no_position
+wear_online_count
+wear_permissions_needed
+wear_quick_copy
+wear_quick_no
+wear_quick_ok
+wear_quick_on_my_way
+wear_quick_yes
+wear_record_from
+wear_rotate_to_calibrate
+wear_scan_radios
+wear_scanning
+wear_send_beacons
+wear_unread_count
+wear_voice
 ### WEB ###
 web_access
 web_access_browser

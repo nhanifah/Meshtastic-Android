@@ -2417,6 +2417,36 @@
     <string name="waypoint_edit">Edit waypoint</string>
     <string name="waypoint_new">New waypoint</string>
     <string name="waypoint_received">Received waypoint: %1$s</string>
+    <!-- WEAR -->
+    <string name="wear_aim_hint">Turn slowly and stop where the SNR is highest</string>
+    <string name="wear_beacon_every">Every %1$d s</string>
+    <string name="wear_keyboard">Keyboard</string>
+    <string name="wear_link_choose">Choose how to connect</string>
+    <string name="wear_link_direct">Direct Bluetooth</string>
+    <string name="wear_link_direct_desc">The watch connects to the radio itself</string>
+    <string name="wear_link_disconnect">Disconnect</string>
+    <string name="wear_link_no_phone">Phone not reachable. Open Meshtastic on the phone.</string>
+    <string name="wear_link_no_radio">Your phone has no radio connected</string>
+    <string name="wear_link_searching">Looking for your phone…</string>
+    <string name="wear_link_via_phone">Via phone</string>
+    <string name="wear_link_via_phone_desc">Uses the radio your phone is connected to</string>
+    <string name="wear_no_conversations">No conversations yet</string>
+    <string name="wear_no_nodes">No nodes heard yet</string>
+    <string name="wear_no_position">This node has not shared a position</string>
+    <string name="wear_online_count">%1$d online</string>
+    <string name="wear_permissions_needed">Meshtastic needs Bluetooth, location and notification access</string>
+    <string name="wear_quick_copy">Copy that</string>
+    <string name="wear_quick_no">No</string>
+    <string name="wear_quick_ok">OK</string>
+    <string name="wear_quick_on_my_way">On my way</string>
+    <string name="wear_quick_yes">Yes</string>
+    <string name="wear_record_from">Record from a node</string>
+    <string name="wear_rotate_to_calibrate">Move the watch in a figure 8 if the arrow drifts</string>
+    <string name="wear_scan_radios">Scan for radios</string>
+    <string name="wear_scanning">Scanning…</string>
+    <string name="wear_send_beacons">Send beacons</string>
+    <string name="wear_unread_count">%1$d unread</string>
+    <string name="wear_voice">Voice</string>
     <!-- WEB -->
     <string name="web_access">Web access</string>
     <string name="web_access_browser">Browser %1$s</string>

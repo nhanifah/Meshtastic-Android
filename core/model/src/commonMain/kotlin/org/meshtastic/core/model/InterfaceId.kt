@@ -21,6 +21,9 @@ enum class InterfaceId(val id: Char) {
     BLUETOOTH('x'),
     MOCK('m'),
     NOP('n'),
+
+    /** A Wear OS watch reaching the radio through the paired phone's own connection. */
+    PHONE('w'),
     REPLAY('r'),
     SERIAL('s'),
     TCP('t'),

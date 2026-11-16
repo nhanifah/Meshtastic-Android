@@ -36,6 +36,19 @@
     <application
         android:name="org.meshtastic.app.GoogleMeshUtilApplication"
         tools:replace="android:name">
+        <!-- Lends the radio session to the Meshtastic Wear OS app on a paired watch. -->
+        <service
+            android:name="org.meshtastic.app.wear.WearBridgeListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/meshtastic"
+                    android:scheme="wear" />
+            </intent-filter>
+        </service>
+
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_API_KEY}" />
