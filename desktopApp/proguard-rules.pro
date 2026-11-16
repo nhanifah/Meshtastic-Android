@@ -92,6 +92,14 @@
 -keep class org.maplibre.nativeffi.** { *; }
 -keep interface org.maplibre.nativeffi.** { *; }
 
+# maplibre-compose's own macOS network monitor binds Network.framework the same
+# way: MacosNetworkFunctions and MacosNetworkMonitor findVirtual their own
+# private upcall targets ("ignore", the path/cancel handlers) at <clinit>. With
+# those stripped the MapLibre runtime dies at start on every Mac, the map state
+# closes, and the next map composed (node details, Mesh Map) throws
+#   IllegalStateException: The map state is closed
+-keep class org.maplibre.compose.mlnffi.** { *; }
+
 # ---- Filament's Panama FFI bindings - the 3D device model viewer ------------
 # Same jextract shape as MapLibre above: each `Fila*Callback$Function` upcall
 # resolves "apply" by name, so the shrinker would strip it.
