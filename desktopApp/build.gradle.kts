@@ -180,6 +180,14 @@ compose.desktop {
         val desktopJvmArgs =
             listOf(
                 "-Xmx2G",
+                // Footprint: C1 alone skips C2's compiler arenas and its larger code, and Serial GC
+                // drops G1's worker threads and remembered sets; the free ratios hand unused heap
+                // back to the OS. Measured on an M-series Mac 100 s after launch: 401 MB -> 329 MB,
+                // idle CPU unchanged. The hot paths (map, Skia) run in native code anyway.
+                "-XX:TieredStopAtLevel=1",
+                "-XX:+UseSerialGC",
+                "-XX:MinHeapFreeRatio=10",
+                "-XX:MaxHeapFreeRatio=30",
                 // maplibre-compose's desktop renderer reaches native code through the FFM API,
                 // which refuses to load without this. Omitting it fails at first map composition,
                 // not at startup, so the map tab would simply be blank.
