@@ -23,7 +23,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
-import org.meshtastic.wear.mirror.DeviceScreen
+import org.meshtastic.wear.radio.RadioScreen
 
 @Composable
 fun WearApp() {
@@ -70,7 +70,7 @@ fun WearApp() {
                     )
                 }
                 composable(WearRoutes.RANGE_TEST_RECORD) { RangeTestRecordScreen() }
-                composable(WearRoutes.DEVICE_SCREEN) { DeviceScreen() }
+                composable(WearRoutes.DEVICE_SCREEN) { RadioScreen() }
             }
         }
     }

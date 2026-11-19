@@ -40,7 +40,7 @@ private val WHILE_SUBSCRIBED = SharingStarted.WhileSubscribed(5_000)
 /** Where the wearer is: the watch's own GPS, else the radio's position. */
 data class Here(val latitude: Double, val longitude: Double)
 
-private fun hereOf(location: PhoneLocation?, ourNode: Node?): Here? = when {
+internal fun hereOf(location: PhoneLocation?, ourNode: Node?): Here? = when {
     location != null -> Here(location.latitude, location.longitude)
     ourNode?.validPosition != null -> Here(ourNode.latitude, ourNode.longitude)
     else -> null
