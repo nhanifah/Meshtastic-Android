@@ -20,7 +20,7 @@ import android.app.Activity
 
 /**
  * Test-only stub for the real `BubbleActivity` in the `:androidApp` module, mirroring the [MainActivity] stub next to
- * it. `MeshNotificationManagerImpl` resolves the bubble host by FQN via `Class.forName(...)` so `:core:service` does
- * not depend on `:androidApp`; this lets unit tests build the bubble `PendingIntent` without that dependency.
+ * it. `MeshNotificationManagerImpl` resolves the bubble host by FQN (`Intent.setClassName`) so `:core:service` does not
+ * depend on `:androidApp`; this lets unit tests build the bubble `PendingIntent` without that dependency.
  */
 class BubbleActivity : Activity()

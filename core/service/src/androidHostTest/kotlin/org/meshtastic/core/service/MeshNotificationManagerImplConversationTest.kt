@@ -364,6 +364,20 @@ class MeshNotificationManagerImplConversationTest {
             assertEquals(style.conversationTitle?.toString(), shortcut.shortLabel?.toString(), "the shortcut matches")
         }
 
+    /** The Wear OS app declares no BubbleActivity; its conversations must still post, just without a bubble. */
+    @Test
+    fun `a host without a bubble activity posts the conversation without a bubble`() = runWithRenderScope { scope ->
+        org.robolectric.Shadows.shadowOf(context.packageManager)
+            .removeActivity(android.content.ComponentName(context, "org.meshtastic.app.BubbleActivity"))
+        val manager = createManager(scope).also { it.initChannels() }
+        mockHistory(message("hello", read = false, receivedTime = 1_000))
+
+        manager.updateMessageNotification("0^all", "Hawk Ridge", "hello", isBroadcast = true, channelName = "LongFast")
+        advanceUntilIdle()
+
+        assertNull(activeByTag("message").single().notification.bubbleMetadata)
+    }
+
     @Test
     @Config(sdk = [29])
     fun `conversation notifications post on Android 10`() = runWithRenderScope { scope ->

@@ -20,7 +20,7 @@ import android.app.Activity
 
 /**
  * Test-only stub for the real `MainActivity` in the `:androidApp` module. `MeshNotificationManagerImpl` resolves the
- * activity by FQN via `Class.forName(...)` to avoid pulling `:androidApp` into `:core:service` as a Gradle dependency.
+ * activity by FQN (`Intent.setClassName`) to avoid pulling `:androidApp` into `:core:service` as a Gradle dependency.
  * This stub lets unit tests exercise the deep-link `PendingIntent` construction path without that dependency.
  */
 class MainActivity : Activity()

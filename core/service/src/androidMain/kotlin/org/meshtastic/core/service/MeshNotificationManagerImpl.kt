@@ -1351,7 +1351,7 @@ class MeshNotificationManagerImpl(
     // region Helper/Builder Methods
     private val openAppIntent: PendingIntent by lazy {
         val intent =
-            Intent(context, Class.forName(activityClass)).apply {
+            Intent().setClassName(context, activityClass).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
         PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -1363,8 +1363,9 @@ class MeshNotificationManagerImpl(
      */
     private fun createDeepLinkIntent(path: String, requestCode: Int): PendingIntent {
         val deepLinkIntent =
-            Intent(Intent.ACTION_VIEW, "$DEEP_LINK_BASE_URI/$path".toUri(), context, Class.forName(activityClass))
-                .apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP }
+            Intent(Intent.ACTION_VIEW, "$DEEP_LINK_BASE_URI/$path".toUri()).setClassName(context, activityClass).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
         return TaskStackBuilder.create(context).run {
             addNextIntentWithParentStack(deepLinkIntent)
             checkNotNull(
@@ -1379,6 +1380,14 @@ class MeshNotificationManagerImpl(
     private fun createOpenNodeDetailIntent(nodeNum: Int) = createDeepLinkIntent("nodes/$nodeNum", nodeNum)
 
     /**
+     * Whether this package declares [className] as an activity or activity-alias. The activity targets are named by
+     * string so that `:core:service` never depends on the app module, and an app may route a name through an alias that
+     * has no class of its own.
+     */
+    private fun hasActivity(className: String): Boolean =
+        Intent().setClassName(context, className).resolveActivityInfo(context.packageManager, 0) != null
+
+    /**
      * Bubble target: [org.meshtastic.app.BubbleActivity], not the launcher activity. A bubble's activity must be
      * resizeable, embeddable and document-launched, and making the launcher activity document-launched would change how
      * the whole app behaves in recents.
@@ -1387,14 +1396,15 @@ class MeshNotificationManagerImpl(
      * that conversation rather than as the app.
      */
     private fun createBubbleMetadata(contactKey: String, icon: IconCompat): NotificationCompat.BubbleMetadata? {
-        // BubbleActivity is not process-scoped, so a clone would bubble the main app's conversation; stay off.
-        if (AppInstance.isClone) return null
+        // BubbleActivity is not process-scoped, so a clone would bubble the main app's conversation; stay off. Hosts
+        // without a BubbleActivity (the Wear OS app) post the conversation without a bubble.
+        if (AppInstance.isClone || !hasActivity(BUBBLE_ACTIVITY_CLASS)) return null
         val deepLinkUri = "$DEEP_LINK_BASE_URI/messages/$contactKey".toUri()
         // Two halves of one rule. The intent carries no task flags, because the platform is the thing that applies
         // FLAG_ACTIVITY_NEW_DOCUMENT and FLAG_ACTIVITY_MULTIPLE_TASK for a bubble — setting them here instead
         // launches outside the bubble and collapses it. And the PendingIntent must be MUTABLE precisely so the
         // platform can add them; this is the documented exception to preferring FLAG_IMMUTABLE everywhere else.
-        val intent = Intent(Intent.ACTION_VIEW, deepLinkUri, context, Class.forName(BUBBLE_ACTIVITY_CLASS))
+        val intent = Intent(Intent.ACTION_VIEW, deepLinkUri).setClassName(context, BUBBLE_ACTIVITY_CLASS)
         val pendingIntent =
             PendingIntent.getActivity(
                 context,

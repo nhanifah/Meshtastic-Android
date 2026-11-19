@@ -46,6 +46,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- An install-time permission that satisfies the connectedDevice foreground-service prerequisite, so MeshService
+         can start (and the phone relay can work) before the user has granted Bluetooth. Same as the phone app. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -82,6 +85,18 @@
             android:name="org.meshtastic.app.MainActivity"
             android:exported="false"
             android:targetActivity="org.meshtastic.wear.WearMainActivity" />
+
+        <!-- WearApplication provides WorkManager's configuration (Koin worker factory) on demand. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
 
         <service
             android:name="org.meshtastic.core.service.MeshService"
