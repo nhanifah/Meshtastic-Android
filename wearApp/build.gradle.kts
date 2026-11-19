@@ -150,4 +150,7 @@ dependencies {
     implementation(libs.kermit)
     implementation(libs.usb.serial.android)
     implementation(libs.kotlinx.datetime)
+
+    testImplementation(kotlin("test-junit"))
+    testRuntimeOnly(libs.junit.vintage.engine)
 }

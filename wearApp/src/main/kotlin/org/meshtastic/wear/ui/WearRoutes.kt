@@ -30,6 +30,7 @@ object WearRoutes {
     const val RANGE_TEST_PICK = "rangetest/pick"
     const val RANGE_TEST_SEND = "rangetest/send"
     const val RANGE_TEST_RECORD = "rangetest/record"
+    const val DEVICE_SCREEN = "devicescreen"
 
     fun conversation(key: String) = "conversation/${Uri.encode(key)}"
 

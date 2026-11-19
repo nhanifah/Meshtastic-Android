@@ -23,6 +23,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
+import org.meshtastic.wear.mirror.DeviceScreen
 
 @Composable
 fun WearApp() {
@@ -36,6 +37,7 @@ fun WearApp() {
                         onMessages = { nav.navigate(WearRoutes.CONTACTS) },
                         onNodes = { nav.navigate(WearRoutes.NODES) },
                         onRangeTest = { nav.navigate(WearRoutes.RANGE_TEST) },
+                        onDeviceScreen = { nav.navigate(WearRoutes.DEVICE_SCREEN) },
                     )
                 }
                 composable(WearRoutes.CONNECTION) { ConnectionScreen(onDone = { nav.popBackStack() }) }
@@ -68,6 +70,7 @@ fun WearApp() {
                     )
                 }
                 composable(WearRoutes.RANGE_TEST_RECORD) { RangeTestRecordScreen() }
+                composable(WearRoutes.DEVICE_SCREEN) { DeviceScreen() }
             }
         }
     }

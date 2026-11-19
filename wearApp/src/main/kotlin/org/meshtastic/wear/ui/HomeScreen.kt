@@ -41,6 +41,7 @@ import org.meshtastic.core.resources.connecting
 import org.meshtastic.core.resources.disconnected
 import org.meshtastic.core.resources.grant_permission
 import org.meshtastic.core.resources.messages
+import org.meshtastic.core.resources.mirror_device_screen
 import org.meshtastic.core.resources.no_device_selected
 import org.meshtastic.core.resources.nodes
 import org.meshtastic.core.resources.range_test
@@ -71,7 +72,13 @@ fun hasAllPermissions(context: Context): Boolean = requiredPermissions().all {
 }
 
 @Composable
-fun HomeScreen(onConnection: () -> Unit, onMessages: () -> Unit, onNodes: () -> Unit, onRangeTest: () -> Unit) {
+fun HomeScreen(
+    onConnection: () -> Unit,
+    onMessages: () -> Unit,
+    onNodes: () -> Unit,
+    onRangeTest: () -> Unit,
+    onDeviceScreen: () -> Unit,
+) {
     val viewModel: HomeViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -116,6 +123,7 @@ fun HomeScreen(onConnection: () -> Unit, onMessages: () -> Unit, onNodes: () -> 
                 onClick = onRangeTest,
             )
         }
+        item { RowButton(label = stringResource(Res.string.mirror_device_screen), onClick = onDeviceScreen) }
     }
 }
 
