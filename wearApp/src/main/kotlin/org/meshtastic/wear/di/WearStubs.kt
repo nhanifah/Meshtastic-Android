@@ -19,6 +19,9 @@ package org.meshtastic.wear.di
 import org.koin.core.annotation.Single
 import org.meshtastic.core.repository.AppWidgetUpdater
 import org.meshtastic.core.repository.DataPair
+import org.meshtastic.core.repository.MeshWorkerManager
+import org.meshtastic.core.repository.MessageQueue
+import org.meshtastic.core.repository.PersistedPacketId
 import org.meshtastic.core.repository.PlatformAnalytics
 
 /** The watch reports no analytics. */
@@ -35,4 +38,14 @@ class WearPlatformAnalytics : PlatformAnalytics {
 @Single(binds = [AppWidgetUpdater::class])
 class WearAppWidgetUpdater : AppWidgetUpdater {
     override suspend fun updateAll() = Unit
+}
+
+/**
+ * Sends queued messages through WorkManager's SendMessageWorker, as the phone's WorkManagerMessageQueue does. That
+ * class lives in :feature:messaging, which the watch does not include, so without this binding SendMessageUseCase (and
+ * every conversation screen that injects it) failed to resolve.
+ */
+@Single(binds = [MessageQueue::class])
+class WearMessageQueue(private val workerManager: MeshWorkerManager) : MessageQueue {
+    override suspend fun enqueue(persistedId: PersistedPacketId) = workerManager.enqueueSendMessage(persistedId)
 }
