@@ -1795,8 +1795,11 @@
     <string name="range_test">Range Test</string>
     <string name="range_test_acked">Confirmed</string>
     <string name="range_test_back_step">Back</string>
+    <string name="range_test_band_fair">Fair</string>
+    <string name="range_test_band_good">Good</string>
     <string name="range_test_band_strong">Strong</string>
     <string name="range_test_band_very_weak">Very weak</string>
+    <string name="range_test_band_weak">Weak</string>
     <string name="range_test_by_distance">By distance</string>
     <string name="range_test_channel_create">Create the “rangeTest” channel (recommended)</string>
     <string name="range_test_channel_create_desc">Added as an extra channel with a new random key. Reused if it already exists.</string>
@@ -1891,6 +1894,7 @@
     <string name="range_test_sent">Sent</string>
     <string name="range_test_share_intro">On the receiver’s phone, open Range Test, start a new test, choose Receiver, then scan this code.</string>
     <string name="range_test_share_preset">Both radios must use the same region and LoRa preset.</string>
+    <string name="range_test_signal_strength">Signal strength</string>
     <string name="range_test_start_test">Start</string>
     <string name="range_test_step_beacon">Beacon settings</string>
     <string name="range_test_step_channel">Test channel</string>

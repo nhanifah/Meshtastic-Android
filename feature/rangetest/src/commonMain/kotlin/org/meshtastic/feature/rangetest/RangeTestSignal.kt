@@ -57,6 +57,7 @@ object RangeTestSignal {
 
     private const val BAND_COUNT = 5f
     private const val WEAK_INDEX = 3
+    private const val SNR_WEIGHT = 0.7f
 
     private val SEQ_REGEX = Regex("""seq\s+(\d+)""", RegexOption.IGNORE_CASE)
 
@@ -91,6 +92,28 @@ object RangeTestSignal {
             if (value < edges[i + 1]) return (i + (value - edges[i]) / (edges[i + 1] - edges[i])) / BAND_COUNT
         }
         return 1f
+    }
+
+    /**
+     * One 0–1 link quality from both readings, on the same scale as [strength]. SNR carries 70% because it decides
+     * whether LoRa can still demodulate: a loud RSSI with a poor SNR is usually interference, not a good link. Falls
+     * back to whichever reading the radio reported; null when it reported neither.
+     */
+    fun combinedStrength(snr: Float?, rssi: Int?): Float? {
+        val snrStrength = snr?.let { strength(RangeTestMetric.SNR, it) }
+        val rssiStrength = rssi?.let { strength(RangeTestMetric.RSSI, it.toFloat()) }
+        return if (snrStrength != null && rssiStrength != null) {
+            snrStrength * SNR_WEIGHT + rssiStrength * (1f - SNR_WEIGHT)
+        } else {
+            snrStrength ?: rssiStrength
+        }
+    }
+
+    /** The band a 0–1 [strength] value falls in; each band is a fifth of the scale. */
+    fun bandForStrength(strength: Float): SignalBand {
+        val lastBand = BAND_COUNT.toInt() - 1
+        val level = (strength * BAND_COUNT).toInt().coerceIn(0, lastBand)
+        return SignalBand.entries[lastBand - level]
     }
 
     /** The sequence number of a firmware Range Test beacon ("seq 42"), or null for any other payload. */

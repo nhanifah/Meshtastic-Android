@@ -30,10 +30,45 @@ import org.meshtastic.proto.PortNum
 import org.meshtastic.proto.Position
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RangeTestLogicTest {
+
+    @Test
+    fun combinedStrengthWeighsSnrOverRssi() {
+        val snr = RangeTestSignal.strength(RangeTestMetric.SNR, -3.8f)
+        val rssi = RangeTestSignal.strength(RangeTestMetric.RSSI, -87f)
+        val combined = assertNotNull(RangeTestSignal.combinedStrength(-3.8f, -87))
+        assertEquals(snr * 0.7f + rssi * 0.3f, combined, 0.0001f)
+        assertEquals(SignalBand.FAIR, RangeTestSignal.bandForStrength(combined))
+    }
+
+    @Test
+    fun loudRssiCannotHideAPoorSnr() {
+        val combined = assertNotNull(RangeTestSignal.combinedStrength(-15f, -80))
+        assertTrue(combined < 0.6f)
+    }
+
+    @Test
+    fun combinedStrengthUsesWhicheverReadingExists() {
+        assertEquals(RangeTestSignal.strength(RangeTestMetric.SNR, 2f), RangeTestSignal.combinedStrength(2f, null))
+        assertEquals(
+            RangeTestSignal.strength(RangeTestMetric.RSSI, -100f),
+            RangeTestSignal.combinedStrength(null, -100),
+        )
+        assertNull(RangeTestSignal.combinedStrength(null, null))
+    }
+
+    @Test
+    fun bandForStrengthCoversTheWholeScale() {
+        assertEquals(SignalBand.VERY_WEAK, RangeTestSignal.bandForStrength(0f))
+        assertEquals(SignalBand.WEAK, RangeTestSignal.bandForStrength(0.3f))
+        assertEquals(SignalBand.FAIR, RangeTestSignal.bandForStrength(0.5f))
+        assertEquals(SignalBand.GOOD, RangeTestSignal.bandForStrength(0.7f))
+        assertEquals(SignalBand.STRONG, RangeTestSignal.bandForStrength(1f))
+    }
 
     @Test
     fun parsesFirmwareSequenceNumbers() {

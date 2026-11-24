@@ -1732,8 +1732,11 @@ rainfall_24h
 range_test
 range_test_acked
 range_test_back_step
+range_test_band_fair
+range_test_band_good
 range_test_band_strong
 range_test_band_very_weak
+range_test_band_weak
 range_test_by_distance
 range_test_channel_create
 range_test_channel_create_desc
@@ -1828,6 +1831,7 @@ range_test_sending_status
 range_test_sent
 range_test_share_intro
 range_test_share_preset
+range_test_signal_strength
 range_test_start_test
 range_test_step_beacon
 range_test_step_channel

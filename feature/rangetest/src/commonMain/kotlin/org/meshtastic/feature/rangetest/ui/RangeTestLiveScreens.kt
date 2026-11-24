@@ -191,6 +191,7 @@ fun RangeTestReceiverScreen(
             Text(stringResource(Res.string.range_test_recording_stopped), style = MaterialTheme.typography.bodyLarge)
             return@LiveScaffold
         }
+        SignalMeter(snr = state.lastSnr, rssi = state.lastRssi, heardAt = state.lastHeardAt)
         InfoCard(
             icon = MeshtasticIcons.NearMe,
             title = stringResource(Res.string.range_test_recording_to, state.targetName.orEmpty()),
