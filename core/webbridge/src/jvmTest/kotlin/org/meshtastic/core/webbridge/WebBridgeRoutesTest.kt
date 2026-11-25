@@ -131,7 +131,8 @@ class WebBridgeRoutesTest {
 
     @Test
     fun `static client and pairing page are served`() = bridgeTest {
-        assertEquals("<h1>client</h1>", client.get("/").bodyAsText())
+        val cookie = pair()
+        assertEquals("<h1>client</h1>", client.get("/") { header(HttpHeaders.Cookie, cookie) }.bodyAsText())
         assertContains(client.get("/pair").bodyAsText(), "location.hash")
         assertEquals(HttpStatusCode.NotFound, client.get("/missing.js").status)
         assertEquals("nosniff", client.get("/").headers["X-Content-Type-Options"])
@@ -139,8 +140,39 @@ class WebBridgeRoutesTest {
 
     @Test
     fun `app routes fall back to the client and gzip assets keep their encoding`() = bridgeTest {
-        assertEquals("<h1>client</h1>", client.get("/messages/broadcast/0").bodyAsText())
+        val cookie = pair()
+        assertEquals(
+            "<h1>client</h1>",
+            client.get("/messages/broadcast/0") { header(HttpHeaders.Cookie, cookie) }.bodyAsText(),
+        )
         assertEquals("gzip", client.get("/app.js").headers[HttpHeaders.ContentEncoding])
+    }
+
+    @Test
+    fun `an unpaired browser that opens the address is sent to pair first`() = bridgeTest {
+        val noRedirects = createClient { followRedirects = false }
+
+        val root = noRedirects.get("/")
+        assertEquals(HttpStatusCode.Found, root.status)
+        assertEquals("/pair", root.headers[HttpHeaders.Location])
+        assertEquals(HttpStatusCode.Found, noRedirects.get("/messages").status)
+        assertEquals(
+            HttpStatusCode.Found,
+            noRedirects.get("/") { header(HttpHeaders.Cookie, "mwb_session=guess") }.status,
+        )
+        // The pairing page offers a form for the code, for a computer that cannot scan the QR code.
+        assertContains(noRedirects.get("/pair").bodyAsText(), "one-time-code")
+    }
+
+    @Test
+    fun `a typed code pairs with spaces or dashes in it`() = bridgeTest {
+        val code = sessions.issuePairingToken()
+        val typed = WebBridgeSessions.formatCode(code).replace(' ', '-')
+
+        val response = client.post("/pair") { setBody(" $typed\n") }
+
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertContains(response.headers[HttpHeaders.SetCookie].orEmpty(), "mwb_session=")
     }
 
     @Test

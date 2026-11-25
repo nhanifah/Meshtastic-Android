@@ -2456,7 +2456,7 @@
     <string name="web_access_browser">Browser %1$s</string>
     <string name="web_access_browsers">Connected browsers</string>
     <string name="web_access_certificate_notice">The browser will warn that the connection is not private, because the phone signs its own certificate. Check that the fingerprint matches, then continue.</string>
-    <string name="web_access_connect_hint">In the web client, add a Network (HTTP) connection to %1$s with HTTPS turned on.</string>
+    <string name="web_access_connect_hint">In the web client, add an HTTP connection and enter only %1$s. HTTPS is already on, so do not type https:// again.</string>
     <string name="web_access_enabled">Allow browser access</string>
     <string name="web_access_enabled_desc">Use this radio from a browser on the same Wi-Fi. The phone stays connected to the radio and must keep running.</string>
     <string name="web_access_fingerprint">Certificate fingerprint</string>
@@ -2464,7 +2464,8 @@
     <string name="web_access_no_browsers">No browser paired yet</string>
     <string name="web_access_no_client">This build does not include the web client. Only the radio API is available.</string>
     <string name="web_access_no_network">Connect the phone to Wi-Fi or turn on its hotspot, then try again.</string>
-    <string name="web_access_scan">Scan this code from the computer, or type the address below into a browser on it.</string>
+    <string name="web_access_pairing_code">Pairing code: %1$s</string>
+    <string name="web_access_scan">Scan this QR code from the computer, or open the address below in a browser on it and enter the pairing code.</string>
     <string name="web_access_start_failed">Could not start web access.</string>
     <string name="web_access_starting">Starting…</string>
     <string name="website">Website</string>

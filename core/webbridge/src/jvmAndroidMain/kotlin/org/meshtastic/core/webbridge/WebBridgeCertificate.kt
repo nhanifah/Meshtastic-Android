@@ -30,15 +30,18 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 import java.math.BigInteger
+import java.net.Socket
 import java.security.KeyPairGenerator
-import java.security.KeyStore
+import java.security.Principal
+import java.security.PrivateKey
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.security.spec.ECGenParameterSpec
 import java.util.Date
 import java.util.concurrent.TimeUnit
-import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLEngine
+import javax.net.ssl.X509ExtendedKeyManager
 
 /** A server identity ready to serve TLS, plus the fingerprint the phone shows so a person can compare it. */
 class WebBridgeIdentity internal constructor(val sslContext: SSLContext, val certificate: X509Certificate) {
@@ -55,7 +58,6 @@ class WebBridgeIdentity internal constructor(val sslContext: SSLContext, val cer
  * same reason as `TakCertificateGenerator`: Android ships a stripped provider under the "BC" name.
  */
 internal object WebBridgeCertificate {
-    private const val ALIAS = "meshtastic-web-bridge"
     private const val SIGNATURE_ALGORITHM = "SHA256withECDSA"
     private const val CURVE = "secp256r1"
     private const val SERIAL_BITS = 128
@@ -92,21 +94,51 @@ internal object WebBridgeCertificate {
                     )
                 }
         val signer = JcaContentSignerBuilder(SIGNATURE_ALGORITHM).setProvider(provider).build(keys.private)
-        val certificate = JcaX509CertificateConverter().setProvider(provider).getCertificate(builder.build(signer))
+        // Parsed by the platform's own factory, so the TLS stack (Conscrypt on Android) gets a certificate type it
+        // knows.
+        val certificate = JcaX509CertificateConverter().getCertificate(builder.build(signer))
 
-        // In-memory only: the key never touches disk, and a password is required by the KeyStore API but protects
-        // nothing here.
-        val password = CharArray(0)
-        val keyStore =
-            KeyStore.getInstance(KeyStore.getDefaultType()).apply {
-                load(null, null)
-                setKeyEntry(ALIAS, keys.private, password, arrayOf(certificate))
-            }
-        val keyManagers =
-            KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
-                .apply { init(keyStore, password) }
-                .keyManagers
-        val sslContext = SSLContext.getInstance("TLS").apply { init(keyManagers, null, random) }
+        // Hand the key to TLS directly instead of through a KeyStore. The default KeyStore type is PKCS12 on the JVM
+        // but
+        // BKS on Android, whose trimmed BouncyCastle may fail to decode an EC key; the key manager would then skip it
+        // and
+        // every browser would get a TLS error while the screen showed Running. In memory only: the key never touches
+        // disk.
+        val keyManager = SingleIdentityKeyManager(keys.private, arrayOf(certificate))
+        val sslContext = SSLContext.getInstance("TLS").apply { init(arrayOf(keyManager), null, random) }
         return WebBridgeIdentity(sslContext, certificate)
+    }
+}
+
+/** Serves exactly one EC identity, for server handshakes only. */
+internal class SingleIdentityKeyManager(private val key: PrivateKey, private val chain: Array<X509Certificate>) :
+    X509ExtendedKeyManager() {
+
+    // TLS 1.2 asks per cipher suite ("EC", "EC_EC", "RSA", ...); answering only for EC steers it to ECDSA suites.
+    private fun aliasFor(keyType: String?): String? = ALIAS.takeIf { keyType == null || keyType.startsWith("EC") }
+
+    override fun chooseServerAlias(keyType: String?, issuers: Array<out Principal>?, socket: Socket?) =
+        aliasFor(keyType)
+
+    override fun chooseEngineServerAlias(keyType: String?, issuers: Array<out Principal>?, engine: SSLEngine?) =
+        aliasFor(keyType)
+
+    override fun getServerAliases(keyType: String?, issuers: Array<out Principal>?): Array<String>? =
+        aliasFor(keyType)?.let { arrayOf(it) }
+
+    override fun getCertificateChain(alias: String?): Array<X509Certificate>? = chain.clone().takeIf { alias == ALIAS }
+
+    override fun getPrivateKey(alias: String?): PrivateKey? = key.takeIf { alias == ALIAS }
+
+    override fun getClientAliases(keyType: String?, issuers: Array<out Principal>?): Array<String>? = null
+
+    override fun chooseClientAlias(
+        keyType: Array<out String>?,
+        issuers: Array<out Principal>?,
+        socket: Socket?,
+    ): String? = null
+
+    private companion object {
+        const val ALIAS = "meshtastic-web-bridge"
     }
 }

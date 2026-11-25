@@ -17,6 +17,7 @@
 package org.meshtastic.core.webbridge
 
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -31,12 +32,10 @@ import kotlinx.coroutines.sync.withLock
 import org.meshtastic.core.di.CoroutineDispatchers
 import org.meshtastic.core.repository.ConfigDumpProvider
 import org.meshtastic.core.repository.RadioInterfaceService
-import java.io.IOException
 import java.net.BindException
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
-import java.security.GeneralSecurityException
 
 /** One running bridge and the pieces the manager needs to talk to it. */
 private class RunningBridge(
@@ -57,6 +56,7 @@ internal class WebBridgeManagerJvm(
     override val isSupported = true
 
     private val lifecycle = Mutex()
+    private val publishLock = Any()
 
     @Volatile private var running: RunningBridge? = null
 
@@ -73,7 +73,7 @@ internal class WebBridgeManagerJvm(
 
     override fun refreshPairingCode() {
         val bridge = running ?: return
-        publishPairingUrl(bridge.sessions)
+        publishPairingCode(bridge.sessions, keepPrevious = false)
     }
 
     override fun revoke(id: String) {
@@ -92,6 +92,8 @@ internal class WebBridgeManagerJvm(
         }
     }
 
+    // CancellationException is caught first and rethrown; the generic catch below only turns real failures into Failed.
+    @Suppress("TooGenericExceptionCaught", "SuspendFunSwallowedCancellation")
     private suspend fun startOn(address: InetAddress) {
         val assets =
             loadWebClientArchive()
@@ -109,10 +111,12 @@ internal class WebBridgeManagerJvm(
         val endpoint =
             try {
                 startOnPreferredPort(server, address)
-            } catch (e: IOException) {
-                fail(server, e)
-                return
-            } catch (e: GeneralSecurityException) {
+            } catch (e: CancellationException) {
+                server.stop()
+                throw e
+            } catch (e: Exception) {
+                // Not only IOException and GeneralSecurityException: a KeyStore, BouncyCastle or Ktor failure must
+                // also end in Failed, or the screen would sit on "Starting…" with a half-started server leaking.
                 fail(server, e)
                 return
             }
@@ -121,21 +125,31 @@ internal class WebBridgeManagerJvm(
             WebBridgeState.Running(
                 endpoint = endpoint,
                 pairingUrl = "",
+                pairingCode = "",
                 sessions = emptyList(),
                 hasWebClient = assets != null,
             )
         val jobs =
             listOf(
-                // Keep the QR code scannable: re-issue the token shortly before the old one expires.
+                // Keep the code usable: re-issue it shortly before it expires. The previous code stays valid until
+                // its own expiry, so someone halfway through typing it is not cut off.
                 scope.launch {
+                    publishPairingCode(sessions, keepPrevious = false)
                     while (isActive) {
-                        publishPairingUrl(sessions)
                         delay(PAIRING_REFRESH_MILLIS)
+                        publishPairingCode(sessions, keepPrevious = true)
                     }
                 },
                 scope.launch {
+                    var knownIds = emptySet<String>()
                     sessions.sessions.collect { list ->
                         _state.update { if (it is WebBridgeState.Running) it.copy(sessions = list) else it }
+                        // A successful pairing used up the code on screen; show a fresh one for the next
+                        // browser. Compare ids, not counts: at the session limit a new pairing evicts the oldest
+                        // and the count stays put.
+                        val ids = list.mapTo(HashSet()) { it.id }
+                        if (!knownIds.containsAll(ids)) publishPairingCode(sessions, keepPrevious = false)
+                        knownIds = ids
                     }
                 },
             )
@@ -165,11 +179,15 @@ internal class WebBridgeManagerJvm(
         _state.value = WebBridgeState.Off
     }
 
-    private fun publishPairingUrl(sessions: WebBridgeSessions) {
-        val token = sessions.issuePairingToken()
+    /** Issue and show as one step, so a rotation racing a pairing can never leave an invalidated code on screen. */
+    private fun publishPairingCode(sessions: WebBridgeSessions, keepPrevious: Boolean) = synchronized(publishLock) {
+        val code = sessions.issuePairingToken(keepPrevious)
         _state.update { current ->
             if (current is WebBridgeState.Running) {
-                current.copy(pairingUrl = "${current.endpoint.origin}/pair#t=$token")
+                current.copy(
+                    pairingUrl = "${current.endpoint.origin}/pair#t=$code",
+                    pairingCode = WebBridgeSessions.formatCode(code),
+                )
             } else {
                 current
             }
@@ -184,8 +202,9 @@ internal class WebBridgeManagerJvm(
 
 /**
  * Picks the IPv4 address a laptop on the same network can reach: a private (site-local) address on an interface that is
- * up. Wi-Fi and hotspot interfaces win over wired ones, and mobile-data interfaces never qualify because carriers hand
- * out addresses outside the private ranges or behind NAT that a laptop cannot reach.
+ * up. Wi-Fi and hotspot interfaces win over wired ones. Mobile-data, VPN and Wi-Fi Direct interfaces are skipped by
+ * name: carriers often hand out carrier-grade NAT addresses in 10.0.0.0/8, which count as site-local but which no
+ * laptop on the Wi-Fi can reach.
  */
 internal fun findLocalNetworkAddress(): InetAddress? {
     val candidates = runCatching {
@@ -193,13 +212,17 @@ internal fun findLocalNetworkAddress(): InetAddress? {
     }
         .getOrDefault(emptyList())
         .filter { runCatching { it.isUp && !it.isLoopback && !it.isVirtual }.getOrDefault(false) }
+        .filterNot { nic -> UNREACHABLE_INTERFACE_PREFIXES.any(nic.name::startsWith) }
         .flatMap { nic -> nic.inetAddresses.toList().map { nic.name to it } }
         .filter { (_, address) -> address is Inet4Address && address.isSiteLocalAddress }
     return candidates.minByOrNull { (name, _) -> interfacePreference(name) }?.second
 }
 
 /** Interface-name prefixes, most preferred first: Wi-Fi, then hotspot, then wired. */
-private val PREFERRED_INTERFACE_PREFIXES = listOf(listOf("wlan"), listOf("swlan", "ap"), listOf("en", "eth"))
+private val PREFERRED_INTERFACE_PREFIXES = listOf(listOf("wlan"), listOf("swlan", "ap", "softap"), listOf("en", "eth"))
+
+/** Mobile data (`rmnet`, `ccmni` on MediaTek), VPN tunnels, Wi-Fi Direct and placeholder interfaces. */
+private val UNREACHABLE_INTERFACE_PREFIXES = listOf("rmnet", "ccmni", "tun", "utun", "ppp", "p2p", "dummy")
 
 private fun interfacePreference(name: String): Int =
     PREFERRED_INTERFACE_PREFIXES.indexOfFirst { prefixes -> prefixes.any(name::startsWith) }.takeIf { it >= 0 }

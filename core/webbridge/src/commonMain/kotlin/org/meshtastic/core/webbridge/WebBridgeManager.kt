@@ -24,8 +24,12 @@ import org.meshtastic.core.repository.RadioInterfaceService
 
 /** A running bridge: where browsers reach it and how a person checks they reached the right phone. */
 data class WebBridgeEndpoint(val host: String, val port: Int, val certificateSha256: String) {
+    /** What the web client's HTTP connection field takes: it already shows a fixed `https://` prefix. */
+    val hostAndPort: String
+        get() = "$host:$port"
+
     val origin: String
-        get() = "https://$host:$port"
+        get() = "https://$hostAndPort"
 }
 
 /** What the Web access screen shows. */
@@ -35,12 +39,15 @@ sealed interface WebBridgeState {
     data object Starting : WebBridgeState
 
     /**
-     * Serving at [endpoint]. [pairingUrl] is what the QR code encodes; it carries a one-time token in its fragment and
-     * is refreshed before the token expires. [hasWebClient] is false in builds that do not bundle the web client.
+     * Serving at [endpoint]. [pairingUrl] is what the QR code encodes; it carries the one-time code in its fragment.
+     * [pairingCode] is the same code grouped for reading, for a browser that opens [WebBridgeEndpoint.origin] directly.
+     * Both are refreshed before the code expires and after every pairing. [hasWebClient] is false in builds that do not
+     * bundle the web client.
      */
     data class Running(
         val endpoint: WebBridgeEndpoint,
         val pairingUrl: String,
+        val pairingCode: String,
         val sessions: List<WebBridgeSessionInfo>,
         val hasWebClient: Boolean,
     ) : WebBridgeState {

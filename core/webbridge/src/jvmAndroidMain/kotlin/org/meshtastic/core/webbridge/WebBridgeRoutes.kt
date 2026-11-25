@@ -27,6 +27,7 @@ import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
+import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.options
@@ -44,7 +45,7 @@ internal object WebBridgeRoutes {
     /** Same ceiling as `StreamFrameCodec.MAX_TO_FROM_RADIO_SIZE`; a `ToRadio` can never be larger. */
     const val MAX_TO_RADIO_BYTES = 512L
 
-    /** A token is 32 hex characters; anything much longer is not a token. */
+    /** A pairing code is 8 digits, perhaps with spaces or dashes; anything much longer is not a code. */
     const val MAX_TOKEN_BODY_BYTES = 128L
 }
 
@@ -96,6 +97,12 @@ internal fun Application.webBridgeModule(hub: WebBridgeHub, sessions: WebBridgeS
             }
             // Client-side routes such as /messages have no file of their own; the single-page app handles them.
             val isAppRoute = !path.substringAfterLast('/').contains('.')
+            // The app page (including / itself) is useless without a session: every API call would fail with 401 and
+            // the web client would only say it cannot connect. Send an unpaired browser, such as one that typed the
+            // address, to pair first.
+            if ((isAppRoute || path == "index.html") && call.sessionIdOrNull(sessions) == null) {
+                return@get call.respondRedirect("/pair")
+            }
             val asset = assets.open(path) ?: if (isAppRoute) assets.open("index.html") else null
             when {
                 asset != null -> {
@@ -134,8 +141,9 @@ private val SecurityHeaders =
     }
 
 /**
- * Reads the one-time token from the URL fragment (never sent to any server), trades it for a session cookie, strips it
- * from the address bar and history, then opens the web client.
+ * Pairs this browser, then opens the web client. A scanned QR code carries the one-time code in the URL fragment (never
+ * sent to any server), which is used at once and stripped from the address bar and history. A browser that opened the
+ * address directly gets a form for the code the phone shows instead.
  */
 private val PAIR_PAGE_HTML =
     """
@@ -143,19 +151,42 @@ private val PAIR_PAGE_HTML =
     <html lang="en"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Meshtastic Web Access</title>
-    <style>body{font:16px system-ui,sans-serif;margin:3rem auto;max-width:32rem;padding:0 1rem}</style>
+    <style>
+    body{font:16px system-ui,sans-serif;margin:3rem auto;max-width:32rem;padding:0 1rem}
+    input{font:inherit;font-size:1.5rem;letter-spacing:.2em;width:10em;padding:.3em}
+    button{font:inherit;padding:.5em 1em;margin-left:.5em}
+    </style>
     </head><body>
     <h1>Meshtastic Web Access</h1>
-    <p id="status">Pairing with your phone…</p>
+    <p id="status">Enter the pairing code shown on your phone under Settings, Web access.</p>
+    <form id="form">
+      <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="16"
+        aria-label="Pairing code" placeholder="1234 5678" required autofocus>
+      <button type="submit">Pair</button>
+    </form>
     <script>
-    (async () => {
+    (() => {
       const status = document.getElementById("status");
+      const form = document.getElementById("form");
+      const input = document.getElementById("code");
+      async function pair(code) {
+        status.textContent = "Pairing with your phone…";
+        let res;
+        try {
+          res = await fetch("/pair", { method: "POST", body: code, credentials: "same-origin" });
+        } catch (e) {
+          status.textContent = "Could not reach your phone. Check that it is on the same Wi-Fi and Web access is on.";
+          return;
+        }
+        if (res.ok) { location.replace("/"); return; }
+        status.textContent = "That code is wrong, expired or was already used. Enter the code your phone shows now.";
+        input.value = "";
+        input.focus();
+      }
+      form.addEventListener("submit", (e) => { e.preventDefault(); pair(input.value); });
       const token = new URLSearchParams(location.hash.slice(1)).get("t");
       history.replaceState(null, "", "/pair");
-      if (!token) { status.textContent = "Scan the QR code shown on your phone to pair."; return; }
-      const res = await fetch("/pair", { method: "POST", body: token, credentials: "same-origin" });
-      if (res.ok) { location.replace("/"); return; }
-      status.textContent = "This pairing code has expired or was already used. Show a new QR code on your phone.";
+      if (token) pair(token);
     })();
     </script>
     </body></html>

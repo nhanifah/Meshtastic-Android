@@ -65,6 +65,7 @@ import org.meshtastic.core.resources.web_access_new_code
 import org.meshtastic.core.resources.web_access_no_browsers
 import org.meshtastic.core.resources.web_access_no_client
 import org.meshtastic.core.resources.web_access_no_network
+import org.meshtastic.core.resources.web_access_pairing_code
 import org.meshtastic.core.resources.web_access_scan
 import org.meshtastic.core.resources.web_access_start_failed
 import org.meshtastic.core.resources.web_access_starting
@@ -178,9 +179,15 @@ private fun RunningSection(state: WebBridgeState.Running, onNewCode: () -> Unit,
             }
             Text(stringResource(Res.string.web_access_scan), style = MaterialTheme.typography.bodyMedium)
             SelectionContainer { Text(origin, style = MaterialTheme.typography.titleMedium) }
+            if (state.pairingCode.isNotEmpty()) {
+                Text(
+                    text = stringResource(Res.string.web_access_pairing_code, state.pairingCode),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
             OutlinedButton(onClick = onNewCode) { Text(stringResource(Res.string.web_access_new_code)) }
             Text(
-                text = stringResource(Res.string.web_access_connect_hint, origin),
+                text = stringResource(Res.string.web_access_connect_hint, state.endpoint.hostAndPort),
                 style = MaterialTheme.typography.bodySmall,
             )
             if (!state.hasWebClient) StatusLine(stringResource(Res.string.web_access_no_client), isError = true)

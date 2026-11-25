@@ -2389,6 +2389,7 @@ web_access_new_code
 web_access_no_browsers
 web_access_no_client
 web_access_no_network
+web_access_pairing_code
 web_access_scan
 web_access_start_failed
 web_access_starting

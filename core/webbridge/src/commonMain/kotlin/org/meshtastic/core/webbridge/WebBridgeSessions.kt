@@ -30,9 +30,13 @@ data class WebBridgeSessionInfo(val id: String, val pairedAtMillis: Long)
 /**
  * Pairing and session state for the web bridge.
  *
- * At most one pairing token is live at a time. It is single-use, expires after [tokenTtlMillis], and is burned after
- * [maxFailedAttempts] wrong guesses. Redeeming it yields a random session cookie. The QR code carries the token in the
- * URL fragment, which browsers never send in a request, so it does not appear in logs or `Referer` headers.
+ * A pairing token is a short numeric code, so it can be typed on a computer that cannot scan the QR code. Each code is
+ * single-use, expires after [tokenTtlMillis], and is burned after [maxFailedAttempts] wrong guesses, which keeps an
+ * 8-digit code far out of reach of guessing. Redeeming it yields a random session cookie. The QR code carries the code
+ * in the URL fragment, which browsers never send in a request, so it does not appear in logs or `Referer` headers.
+ *
+ * At most two codes are live: an automatic rotation keeps the previous code valid until it expires, so a code someone
+ * is typing is not cut off, while an explicit new code and every successful pairing invalidate all earlier ones.
  *
  * All values compare in constant time. Nothing here is persisted: stopping the bridge forgets every session.
  */
@@ -49,7 +53,7 @@ class WebBridgeSessions(
     private class Session(val cookie: String, val info: WebBridgeSessionInfo)
 
     private val lock = SynchronizedObject()
-    private var pending: PendingToken? = null
+    private val pending = ArrayDeque<PendingToken>()
     private val sessionsByCookie = LinkedHashMap<String, Session>()
 
     private val _sessions = MutableStateFlow<List<WebBridgeSessionInfo>>(emptyList())
@@ -57,9 +61,19 @@ class WebBridgeSessions(
     /** Paired browsers, oldest first. */
     val sessions: StateFlow<List<WebBridgeSessionInfo>> = _sessions.asStateFlow()
 
-    /** Issues a fresh pairing token and invalidates any earlier one. */
-    fun issuePairingToken(): String = synchronized(lock) {
-        randomHex(TOKEN_BYTES).also { pending = PendingToken(it, clockMillis() + tokenTtlMillis) }
+    /**
+     * Issues a fresh pairing code. It invalidates every earlier code unless [keepPrevious] is set, in which case the
+     * most recent earlier code stays valid until its own expiry.
+     */
+    fun issuePairingToken(keepPrevious: Boolean = false): String = synchronized(lock) {
+        val now = clockMillis()
+        pending.removeAll { now >= it.expiresAtMillis }
+        if (keepPrevious) {
+            while (pending.size > 1) pending.removeFirst()
+        } else {
+            pending.clear()
+        }
+        randomDigits(TOKEN_DIGITS).also { pending.addLast(PendingToken(it, now + tokenTtlMillis)) }
     }
 
     /**
@@ -67,17 +81,18 @@ class WebBridgeSessions(
      * the session limit is reached, the oldest session is evicted so the person holding the phone can always pair.
      */
     fun redeem(token: String): String? = synchronized(lock) {
-        val current = pending ?: return@synchronized null
-        if (clockMillis() >= current.expiresAtMillis) {
-            pending = null
+        val now = clockMillis()
+        pending.removeAll { now >= it.expiresAtMillis }
+        val candidate = normalizeCode(token)
+        // Compare against every live code so the time taken does not depend on which one matched.
+        var matched = false
+        pending.forEach { if (constantTimeEquals(it.value, candidate)) matched = true }
+        if (!matched) {
+            pending.forEach { it.failures++ }
+            pending.removeAll { it.failures >= maxFailedAttempts }
             return@synchronized null
         }
-        if (!constantTimeEquals(current.value, token)) {
-            current.failures++
-            if (current.failures >= maxFailedAttempts) pending = null
-            return@synchronized null
-        }
-        pending = null
+        pending.clear()
         if (sessionsByCookie.size >= maxSessions) {
             sessionsByCookie.keys.firstOrNull()?.let { sessionsByCookie.remove(it) }
         }
@@ -108,7 +123,7 @@ class WebBridgeSessions(
 
     /** Forgets every session and any pending token. */
     fun clear() = synchronized(lock) {
-        pending = null
+        pending.clear()
         sessionsByCookie.clear()
         publish()
     }
@@ -119,13 +134,36 @@ class WebBridgeSessions(
 
     private fun randomHex(size: Int): String = randomBytes(size).toByteString().hex()
 
+    /** Uniform decimal digits: bytes of 250 and above are rejected so `% 10` has no bias. */
+    private fun randomDigits(count: Int): String = buildString {
+        while (length < count) {
+            randomBytes(count).forEach { byte ->
+                val value = byte.toInt() and BYTE_MASK
+                if (value < UNBIASED_BYTE_LIMIT && length < count) append('0' + value % DECIMAL_BASE)
+            }
+        }
+    }
+
     companion object {
         const val DEFAULT_TOKEN_TTL_MILLIS = 5 * 60 * 1000L
         const val DEFAULT_MAX_SESSIONS = 4
         const val DEFAULT_MAX_FAILED_ATTEMPTS = 5
-        private const val TOKEN_BYTES = 16
+
+        /** 10^8 codes against at most [DEFAULT_MAX_FAILED_ATTEMPTS] guesses per code. */
+        const val TOKEN_DIGITS = 8
+        private const val BYTE_MASK = 0xFF
+        private const val UNBIASED_BYTE_LIMIT = 250
+        private const val DECIMAL_BASE = 10
         private const val COOKIE_BYTES = 32
         private const val ID_BYTES = 4
+
+        /** People type codes with spaces or dashes ("1234 5678"); only the digits count. */
+        fun normalizeCode(input: String): String = input.filter { it in '0'..'9' }
+
+        /** Shows a code in two groups of four, the way people read it off a screen. */
+        fun formatCode(code: String): String = code.chunked(CODE_GROUP).joinToString(" ")
+
+        private const val CODE_GROUP = 4
 
         internal fun constantTimeEquals(a: String, b: String): Boolean {
             var diff = a.length xor b.length

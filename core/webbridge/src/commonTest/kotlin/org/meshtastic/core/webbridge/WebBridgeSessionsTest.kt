@@ -65,6 +65,62 @@ class WebBridgeSessionsTest {
     }
 
     @Test
+    fun `an automatic rotation keeps the previous code until it expires`() {
+        val first = sessions.issuePairingToken()
+        now = 600
+        val second = sessions.issuePairingToken(keepPrevious = true)
+
+        assertNotNull(sessions.redeem(first))
+        // A successful pairing uses up every live code, not only the one that matched.
+        assertNull(sessions.redeem(second))
+    }
+
+    @Test
+    fun `a rotated-out code still expires on time`() {
+        val first = sessions.issuePairingToken()
+        now = 600
+        val second = sessions.issuePairingToken(keepPrevious = true)
+        now = 1_000
+
+        assertNull(sessions.redeem(first))
+        assertNotNull(sessions.redeem(second))
+    }
+
+    @Test
+    fun `only the latest earlier code survives a rotation`() {
+        val first = sessions.issuePairingToken()
+        val second = sessions.issuePairingToken(keepPrevious = true)
+        val third = sessions.issuePairingToken(keepPrevious = true)
+
+        assertNull(sessions.redeem(first))
+        assertNotNull(sessions.redeem(second))
+        assertNull(sessions.redeem(third))
+    }
+
+    @Test
+    fun `codes are eight digits and typed separators are ignored`() {
+        val code = sessions.issuePairingToken()
+
+        assertEquals(WebBridgeSessions.TOKEN_DIGITS, code.length)
+        assertTrue(code.all { it in '0'..'9' })
+        assertEquals("${code.take(4)} ${code.drop(4)}", WebBridgeSessions.formatCode(code))
+        assertNotNull(sessions.redeem(" ${code.take(4)}-${code.drop(4)} "))
+    }
+
+    @Test
+    fun `codes have no modulo bias toward low digits`() {
+        // Bytes 250..255 must be skipped, not folded onto 0..5.
+        var next = 0
+        val biased =
+            WebBridgeSessions(
+                clockMillis = { 0L },
+                randomBytes = { size -> ByteArray(size) { (if (next++ % 2 == 0) 255 else 7).toByte() } },
+            )
+
+        assertEquals("77777777", biased.issuePairingToken())
+    }
+
+    @Test
     fun `repeated wrong guesses burn the token`() {
         val token = sessions.issuePairingToken()
         repeat(3) { assertNull(sessions.redeem("wrong")) }
