@@ -34,10 +34,12 @@ import org.meshtastic.desktop.stub.NoopMeshLocationManager
 import org.meshtastic.desktop.stub.NoopMeshWorkerManager
 import org.meshtastic.desktop.stub.NoopPhoneLocationProvider
 import org.meshtastic.desktop.stub.NoopPhonePressureProvider
+import org.meshtastic.desktop.stub.NoopPhoneSensorsProvider
 import org.meshtastic.desktop.stub.NoopPlatformAnalytics
 import org.meshtastic.feature.map.hud.CameraPoseProvider
 import org.meshtastic.feature.map.hud.PhonePressureProvider
 import org.meshtastic.feature.node.compass.CompassHeadingProvider
+import org.meshtastic.feature.node.yagi.PhoneSensorsProvider
 
 /**
  * Stubs for interfaces whose only real implementation needs Android APIs — WorkManager, widgets, location, sensors and
@@ -65,4 +67,6 @@ class DesktopStubsModule {
     @Single fun cameraPoseProvider(): CameraPoseProvider = NoopCameraPoseProvider()
 
     @Single fun phonePressureProvider(): PhonePressureProvider = NoopPhonePressureProvider()
+
+    @Single fun phoneSensorsProvider(): PhoneSensorsProvider = NoopPhoneSensorsProvider()
 }

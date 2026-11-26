@@ -76,6 +76,8 @@ import org.meshtastic.feature.node.metrics.TracerouteLogScreen
 import org.meshtastic.feature.node.metrics.TracerouteMapScreen
 import org.meshtastic.feature.node.metrics.terminal.RemoteShellScreen
 import org.meshtastic.feature.node.metrics.terminal.RemoteShellViewModel
+import org.meshtastic.feature.node.yagi.YagiPointingScreen
+import org.meshtastic.feature.node.yagi.YagiPointingViewModel
 import kotlin.reflect.KClass
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
@@ -173,6 +175,15 @@ fun EntryProviderScope<NavKey>.nodeDetailGraph(backStack: NavBackStack<NavKey>) 
         )
     }
 
+    // Full window: the dial wants the room, and it runs sensors only while it is on screen.
+    entry<NodeDetailRoute.YagiPointing> { args ->
+        val yagiViewModel = koinViewModel<YagiPointingViewModel> { parametersOf(args.destNum) }
+        YagiPointingScreen(
+            viewModel = yagiViewModel,
+            onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() },
+        )
+    }
+
     entry<NodeDetailRoute.PositionLog>(metadata = { ListDetailSceneStrategy.extraPane() }) { args ->
         val metricsViewModel = koinViewModel<MetricsViewModel> { parametersOf(args.destNum) }
         metricsViewModel.setNodeId(args.destNum)
@@ -220,7 +231,7 @@ fun EntryProviderScope<NavKey>.nodeDetailGraph(backStack: NavBackStack<NavKey>) 
             NodeDetailRoute.NeighborInfoLog::class ->
                 addNodeDetailScreenComposable<NodeDetailRoute.NeighborInfoLog>(backStack, routeInfo) { it.destNum }
 
-            // NodeDetailRoute.RemoteShell is handled by the dedicated entry above.
+            // NodeDetailRoute.RemoteShell and YagiPointing are handled by the dedicated entries above.
             else -> Unit
         }
     }

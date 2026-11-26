@@ -40,10 +40,13 @@ import org.meshtastic.core.common.util.MeasurementSystem
 import org.meshtastic.core.model.Node
 import org.meshtastic.core.model.util.toDistanceString
 import org.meshtastic.core.navigation.MapRoute
+import org.meshtastic.core.navigation.NodeDetailRoute
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.mesh_hud_open
 import org.meshtastic.core.resources.open_compass
 import org.meshtastic.core.resources.site_planner_estimate
+import org.meshtastic.core.resources.yagi_pointing_open
+import org.meshtastic.core.ui.icon.Antenna
 import org.meshtastic.core.ui.icon.CellTower
 import org.meshtastic.core.ui.icon.CenterFocusStrong
 import org.meshtastic.core.ui.icon.Compass
@@ -86,6 +89,10 @@ internal fun PositionInlineContent(
             overflow = TextOverflow.Ellipsis,
         )
     }
+    if (node.validPosition != null) {
+        Spacer(Modifier.height(8.dp))
+        YagiPointingButton(node.num, onAction)
+    }
     if (rememberMeshHudSupported() && node.validPosition != null) {
         Spacer(Modifier.height(8.dp))
         FilledTonalButton(
@@ -120,6 +127,24 @@ internal fun PositionInlineContent(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+@Composable
+private fun YagiPointingButton(nodeNum: Int, onAction: (NodeDetailAction) -> Unit) {
+    FilledTonalButton(
+        onClick = { onAction(NodeDetailAction.Navigate(NodeDetailRoute.YagiPointing(nodeNum))) },
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Icon(MeshtasticIcons.Antenna, null, Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = stringResource(Res.string.yagi_pointing_open),
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

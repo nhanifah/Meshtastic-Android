@@ -27,6 +27,8 @@ import org.meshtastic.feature.map.hud.CameraPoseState
 import org.meshtastic.feature.map.hud.PhonePressureProvider
 import org.meshtastic.feature.node.compass.CompassHeadingProvider
 import org.meshtastic.feature.node.compass.HeadingState
+import org.meshtastic.feature.node.yagi.PhoneSensors
+import org.meshtastic.feature.node.yagi.PhoneSensorsProvider
 
 /** No-op [CompassHeadingProvider] — desktop has no compass sensor. */
 class NoopCompassHeadingProvider : CompassHeadingProvider {
@@ -52,4 +54,11 @@ class NoopPhonePressureProvider : PhonePressureProvider {
 /** No-op [MagneticFieldProvider] — always returns zero declination. */
 class NoopMagneticFieldProvider : MagneticFieldProvider {
     override fun getDeclination(latitude: Double, longitude: Double, altitude: Double, timeMillis: Long): Float = 0f
+}
+
+/** No-op [PhoneSensorsProvider]: desktop has no pointing sensors, so the Yagi screen runs on manual entry. */
+class NoopPhoneSensorsProvider : PhoneSensorsProvider {
+    override fun sensors(): PhoneSensors = PhoneSensors()
+
+    override fun pressureUpdates(): Flow<Float> = emptyFlow()
 }

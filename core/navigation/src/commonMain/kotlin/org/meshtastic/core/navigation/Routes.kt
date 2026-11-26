@@ -107,6 +107,9 @@ sealed interface NodeDetailRoute : Route {
     @Serializable data class NeighborInfoLog(val destNum: Int) : NodeDetailRoute
 
     @Serializable data class RemoteShell(val destNum: Int) : NodeDetailRoute
+
+    /** Compass, azimuth and elevation guidance for aiming a directional antenna at [destNum]. */
+    @Serializable data class YagiPointing(val destNum: Int) : NodeDetailRoute
 }
 
 @Serializable

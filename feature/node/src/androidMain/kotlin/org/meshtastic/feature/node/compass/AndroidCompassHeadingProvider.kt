@@ -25,6 +25,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import org.koin.core.annotation.Single
+import kotlin.math.atan2
+import kotlin.math.sqrt
 
 private const val ROTATION_MATRIX_SIZE = 9
 private const val ORIENTATION_SIZE = 3
@@ -47,7 +49,22 @@ class AndroidCompassHeadingProvider(private val context: Context) : CompassHeadi
 
         if (rotationSensor == null && (accelerometer == null || magnetometer == null)) {
             trySend(HeadingState(hasSensor = false))
-            awaitClose {}
+            if (accelerometer == null) {
+                awaitClose {}
+                return@callbackFlow
+            }
+            // No compass, but gravity still gives the tilt: a Yagi can be aimed in elevation while the heading is
+            // entered by hand.
+            val tiltListener =
+                object : SensorEventListener {
+                    override fun onSensorChanged(event: SensorEvent) {
+                        trySend(HeadingState(hasSensor = false, pitch = pitchFromGravity(event.values)))
+                    }
+
+                    override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) = Unit
+                }
+            sensorManager.registerListener(tiltListener, accelerometer, SensorManager.SENSOR_DELAY_UI)
+            awaitClose { sensorManager.unregisterListener(tiltListener) }
             return@callbackFlow
         }
 
@@ -87,7 +104,13 @@ class AndroidCompassHeadingProvider(private val context: Context) : CompassHeadi
                         val azimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
                         val heading = (azimuth + FULL_CIRCLE_DEGREES) % FULL_CIRCLE_DEGREES
 
-                        trySend(HeadingState(heading = heading, hasSensor = true, accuracy = event.accuracy))
+                        // Android's pitch is positive when the top edge dips toward the ground; flip it so a
+                        // raised top edge (a boom aimed above the horizon) reads positive.
+                        val pitch = -Math.toDegrees(orientation[1].toDouble()).toFloat()
+
+                        trySend(
+                            HeadingState(heading = heading, hasSensor = true, accuracy = event.accuracy, pitch = pitch),
+                        )
                     }
                 }
 
@@ -104,4 +127,13 @@ class AndroidCompassHeadingProvider(private val context: Context) : CompassHeadi
 
         awaitClose { sensorManager.unregisterListener(listener) }
     }
+}
+
+/**
+ * Tilt of the phone's top edge above the horizon from a raw accelerometer reading: lying screen-up the phone reads +g
+ * on z, and raising the top edge by θ moves g·sin θ onto y.
+ */
+private fun pitchFromGravity(values: FloatArray): Float {
+    val (x, y, z) = Triple(values[0].toDouble(), values[1].toDouble(), values[2].toDouble())
+    return Math.toDegrees(atan2(y, sqrt(x * x + z * z))).toFloat()
 }

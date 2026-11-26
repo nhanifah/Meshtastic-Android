@@ -18,10 +18,15 @@ package org.meshtastic.feature.node.compass
 
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * [heading] is magnetic, 0..360 degrees. [pitch] is how far the phone's top edge is raised above the horizon when it
+ * lies screen-up (positive = tilted up, -90..90); null where the platform reports no tilt.
+ */
 data class HeadingState(
-    val heading: Float? = null, // 0..360 degrees
+    val heading: Float? = null,
     val hasSensor: Boolean = true,
     val accuracy: Int = 0,
+    val pitch: Float? = null,
 )
 
 interface CompassHeadingProvider {
