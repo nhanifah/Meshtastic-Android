@@ -1958,6 +1958,26 @@ restore_keys
 restore_keys_confirmation
 restore_keys_pick_backup
 retry
+### RF ###
+rf_scanner_active_scan
+rf_scanner_active_scan_summary
+rf_scanner_direct
+rf_scanner_empty
+rf_scanner_excluded_network
+rf_scanner_explainer
+rf_scanner_hops
+rf_scanner_relayed
+rf_scanner_sort
+rf_scanner_sort_signal
+rf_scanner_title
+rf_scanner_total
+rf_scanner_unknown_hops
+rf_scanner_window
+rf_scanner_window_15m
+rf_scanner_window_1h
+rf_scanner_window_24h
+rf_scanner_window_2h
+rf_scanner_window_6h
 ringtone
 ringtone_file_empty
 ringtone_import_error

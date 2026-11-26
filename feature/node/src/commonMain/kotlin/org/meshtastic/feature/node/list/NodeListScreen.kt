@@ -80,6 +80,7 @@ import org.meshtastic.core.resources.nodes_unheard_banner
 import org.meshtastic.core.resources.nodes_unheard_banner_one
 import org.meshtastic.core.resources.nodes_unheard_keep
 import org.meshtastic.core.resources.nodes_unheard_remove
+import org.meshtastic.core.resources.rf_scanner_title
 import org.meshtastic.core.resources.set_up_connection
 import org.meshtastic.core.ui.component.EmptyState
 import org.meshtastic.core.ui.component.ListScrollbar
@@ -91,6 +92,7 @@ import org.meshtastic.core.ui.component.ScrollToTopEvent
 import org.meshtastic.core.ui.component.ShareContactDialog
 import org.meshtastic.core.ui.component.smartScrollToTop
 import org.meshtastic.core.ui.icon.BarChart
+import org.meshtastic.core.ui.icon.CellTower
 import org.meshtastic.core.ui.icon.Info
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.NoDevice
@@ -149,6 +151,7 @@ fun NodeListScreen(
     navigateToMeshView: (Int) -> Unit = {},
     navigateToCompass: (Int) -> Unit = {},
     onEditName: () -> Unit = {},
+    onOpenRfScanner: () -> Unit = {},
 ) {
     val showToast = org.meshtastic.core.ui.util.rememberShowToastResource()
     val scope = rememberCoroutineScope()
@@ -326,6 +329,12 @@ fun NodeListScreen(
                 canNavigateUp = false,
                 onNavigateUp = {},
                 actions = {
+                    IconButton(onClick = onOpenRfScanner) {
+                        Icon(
+                            imageVector = MeshtasticIcons.CellTower,
+                            contentDescription = stringResource(Res.string.rf_scanner_title),
+                        )
+                    }
                     IconButton(onClick = { showHopHistogram = true }) {
                         Icon(
                             imageVector = MeshtasticIcons.BarChart,

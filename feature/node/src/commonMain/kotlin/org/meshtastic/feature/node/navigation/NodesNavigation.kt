@@ -30,6 +30,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import org.meshtastic.core.navigation.ContactsRoute
+import org.meshtastic.core.navigation.DiscoveryRoute
 import org.meshtastic.core.navigation.MapRoute
 import org.meshtastic.core.navigation.NodeDetailRoute
 import org.meshtastic.core.navigation.NodesRoute
@@ -76,6 +77,8 @@ import org.meshtastic.feature.node.metrics.TracerouteLogScreen
 import org.meshtastic.feature.node.metrics.TracerouteMapScreen
 import org.meshtastic.feature.node.metrics.terminal.RemoteShellScreen
 import org.meshtastic.feature.node.metrics.terminal.RemoteShellViewModel
+import org.meshtastic.feature.node.scanner.RfScannerScreen
+import org.meshtastic.feature.node.scanner.RfScannerViewModel
 import org.meshtastic.feature.node.yagi.YagiPointingScreen
 import org.meshtastic.feature.node.yagi.YagiPointingViewModel
 import kotlin.reflect.KClass
@@ -94,6 +97,16 @@ fun EntryProviderScope<NavKey>.nodesGraph(
             scrollToTopEvents = scrollToTopEvents,
             onHandleDeepLink = onHandleDeepLink,
             onNavigateToConnections = onNavigateToConnections,
+        )
+    }
+
+    entry<NodesRoute.RfScanner> {
+        val viewModel: RfScannerViewModel = koinViewModel()
+        RfScannerScreen(
+            viewModel = viewModel,
+            onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() },
+            onNodeClick = { num -> backStack.add(NodesRoute.NodeDetail(num)) },
+            onOpenActiveScan = { backStack.add(DiscoveryRoute.DiscoveryGraph) },
         )
     }
 

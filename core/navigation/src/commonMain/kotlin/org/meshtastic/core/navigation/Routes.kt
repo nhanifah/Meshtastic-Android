@@ -79,6 +79,9 @@ sealed interface NodesRoute : Route {
 
     /** [openCompass] opens the compass sheet on arrival, for entry points that offer the compass directly. */
     @Serializable data class NodeDetail(val destNum: Int? = null, val openCompass: Boolean = false) : NodesRoute
+
+    /** Counts the nodes heard over RF, leaving out the ones that only reached us over MQTT. */
+    @Serializable data object RfScanner : NodesRoute
 }
 
 @Serializable

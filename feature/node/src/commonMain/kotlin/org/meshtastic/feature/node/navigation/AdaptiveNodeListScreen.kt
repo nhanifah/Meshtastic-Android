@@ -51,5 +51,6 @@ fun AdaptiveNodeListScreen(
         navigateToMeshView = { num -> backStack.add(MapRoute.MeshHud(focusNodeNum = num)) },
         onEditName = { backStack.add(SettingsRoute.User) },
         navigateToCompass = { num -> backStack.add(NodesRoute.NodeDetail(num, openCompass = true)) },
+        onOpenRfScanner = { backStack.add(NodesRoute.RfScanner) },
     )
 }
