@@ -51,6 +51,12 @@ interface MeshLogRepository {
     /** Retrieves all [MeshLog]s containing [MeshPacket]s for a specific [nodeNum]. */
     fun getMeshPacketsFrom(nodeNum: Int, portNum: Int = -1): Flow<List<MeshPacket>>
 
+    /**
+     * Retrieves the [MeshLog]s on [portNum] from every node received at or after [sinceMillis], newest first, up to
+     * [maxItem]. A log from this device carries [MeshLog.NODE_NUM_LOCAL] as its sender.
+     */
+    fun getLogsOnPortSince(portNum: Int, sinceMillis: Long, maxItem: Int = DEFAULT_MAX_LOGS): Flow<List<MeshLog>>
+
     /** Retrieves telemetry history for a specific node, automatically handling local node redirection. */
     fun getTelemetryFrom(nodeNum: Int): Flow<List<Telemetry>>
 

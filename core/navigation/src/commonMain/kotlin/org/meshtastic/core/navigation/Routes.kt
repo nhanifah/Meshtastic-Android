@@ -209,6 +209,9 @@ sealed interface SettingsRoute : Route {
 
     @Serializable data object NodeList : SettingsRoute
 
+    /** The main map's live tracker: trails behind moving nodes. */
+    @Serializable data object Tracker : SettingsRoute
+
     @Serializable data object DeviceLinks : SettingsRoute
 
     @Serializable data object AppFunctionsSettings : SettingsRoute

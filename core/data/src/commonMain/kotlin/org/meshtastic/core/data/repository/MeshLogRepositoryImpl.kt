@@ -107,6 +107,14 @@ open class MeshLogRepositoryImpl(
     override fun getMeshPacketsFrom(nodeNum: Int, portNum: Int): Flow<List<MeshPacket>> =
         getLogsFrom(nodeNum, portNum).map { list -> list.mapNotNull { it.fromRadio.packet } }.flowOn(dispatchers.io)
 
+    override fun getLogsOnPortSince(portNum: Int, sinceMillis: Long, maxItem: Int): Flow<List<MeshLog>> = dbManager
+        .observeCurrentDb("MeshLogRepository.getLogsOnPortSince") {
+            it.meshLogDao().getLogsOnPortSince(portNum, sinceMillis, maxItem)
+        }
+        .distinctUntilChanged()
+        .map { list -> list.map { it.asExternalModel() } }
+        .flowOn(dispatchers.io)
+
     /** Retrieves telemetry history for a specific node, automatically handling local node redirection. */
     override fun getTelemetryFrom(nodeNum: Int): Flow<List<Telemetry>> = effectiveLogId(nodeNum)
         .flatMapLatest { logId ->

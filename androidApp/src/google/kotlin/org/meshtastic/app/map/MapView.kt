@@ -237,6 +237,8 @@ import org.meshtastic.feature.map.trackFadeAlpha
 import org.meshtastic.feature.map.trackFadeLevel
 import org.meshtastic.feature.map.trackFadeLevelAlpha
 import org.meshtastic.feature.map.trackRecency
+import org.meshtastic.feature.map.tracker.TrackerViewModel
+import org.meshtastic.feature.map.tracker.visibleTrails
 import org.meshtastic.proto.BoundingBox
 import org.meshtastic.proto.Position
 import org.meshtastic.proto.Waypoint
@@ -509,6 +511,12 @@ fun MapView(
     val selectedWaypointId by mapViewModel.selectedWaypointId.collectAsStateWithLifecycle()
 
     val filteredNodes = MapNodePolicy.visibleNodes(allNodes, mapFilterState, nowSeconds, ourNodeInfo?.num)
+
+    // The tracker's trails follow the map's own filters, and are drawn on the main map only.
+    val trackerViewModel: TrackerViewModel = koinViewModel()
+    val tracker by trackerViewModel.state.collectAsStateWithLifecycle()
+    val trackerTrails = if (mode is GoogleMapMode.Main) tracker.visibleTrails(filteredNodes) else emptyList()
+    val trackerColors = remember(filteredNodes) { filteredNodes.associate { it.num to it.colors.second } }
 
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
@@ -850,7 +858,10 @@ fun MapView(
             }
 
             when (mode) {
-                is GoogleMapMode.Main ->
+                is GoogleMapMode.Main -> {
+                    if (trackerTrails.isNotEmpty()) {
+                        TrackerOverlay(trails = trackerTrails, nodeColors = trackerColors, settings = tracker.settings)
+                    }
                     MainMapContent(
                         nodeClusterItems = nodeClusterItems,
                         mapFilterState = mapFilterState,
@@ -868,6 +879,7 @@ fun MapView(
                         coroutineScope = coroutineScope,
                         onShowClusterItemsDialog = { showClusterItemsDialog = it },
                     )
+                }
 
                 is GoogleMapMode.NodeTrack -> {
                     if (mode.focusedNode != null && sortedTrackPositions.isNotEmpty()) {

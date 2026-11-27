@@ -76,6 +76,19 @@ interface MeshLogDao {
     )
     fun getLogsOnPort(portNum: Int, excludeFromNum: Int, maxItem: Int): Flow<List<MeshLog>>
 
+    /**
+     * Retrieves [MeshLog]s on 'port_num' (PortNum) from every node, received at or after [sinceReceivedDate], newest
+     * first. Bounded by both the time window and [maxItem], so a long tail on a busy mesh cannot load the whole log.
+     */
+    @Query(
+        """
+        SELECT * FROM log
+        WHERE port_num = :portNum AND received_date >= :sinceReceivedDate
+        ORDER BY received_date DESC LIMIT :maxItem
+        """,
+    )
+    fun getLogsOnPortSince(portNum: Int, sinceReceivedDate: Long, maxItem: Int): Flow<List<MeshLog>>
+
     @Insert suspend fun insert(log: MeshLog)
 
     /**

@@ -30,6 +30,7 @@ import org.meshtastic.core.resources.debug_panel
 import org.meshtastic.core.resources.device_links
 import org.meshtastic.core.resources.filter_settings
 import org.meshtastic.core.resources.node_layout_section_title
+import org.meshtastic.core.resources.tracker_title
 import org.meshtastic.core.resources.wifi_devices
 import org.meshtastic.feature.settings.navigation.ConfigRoute
 import org.meshtastic.feature.settings.navigation.ModuleRoute
@@ -148,6 +149,7 @@ object SettingsSearchCatalog {
     private val appSettings: List<Pair<StringResource, Route>> =
         listOf(
             Res.string.node_layout_section_title to SettingsRoute.NodeList,
+            Res.string.tracker_title to SettingsRoute.Tracker,
             Res.string.wifi_devices to WifiProvisionRoute.WifiProvision(),
             Res.string.filter_settings to SettingsRoute.FilterSettings,
             Res.string.device_links to SettingsRoute.DeviceLinks,

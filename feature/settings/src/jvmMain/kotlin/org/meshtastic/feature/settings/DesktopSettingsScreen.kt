@@ -55,6 +55,8 @@ import org.meshtastic.core.resources.preferences_system_default
 import org.meshtastic.core.resources.pt_BR
 import org.meshtastic.core.resources.supportedLocaleTags
 import org.meshtastic.core.resources.theme
+import org.meshtastic.core.resources.tracker_summary
+import org.meshtastic.core.resources.tracker_title
 import org.meshtastic.core.resources.units
 import org.meshtastic.core.resources.wifi_devices
 import org.meshtastic.core.resources.zh_CN
@@ -71,6 +73,7 @@ import org.meshtastic.core.ui.icon.Language
 import org.meshtastic.core.ui.icon.List
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.PermScanWifi
+import org.meshtastic.core.ui.icon.Route
 import org.meshtastic.core.ui.icon.Wifi
 import org.meshtastic.feature.settings.component.AppVersionRows
 import org.meshtastic.feature.settings.component.CacheLimitPreference
@@ -240,6 +243,16 @@ fun DesktopSettingsScreen(
                         leadingIcon = MeshtasticIcons.List,
                     ) {
                         onNavigate(SettingsRoute.NodeList)
+                    }
+                }
+
+                ExpressiveSection(title = stringResource(Res.string.tracker_title)) {
+                    ListItem(
+                        text = stringResource(Res.string.tracker_title),
+                        supportingText = stringResource(Res.string.tracker_summary),
+                        leadingIcon = MeshtasticIcons.Route,
+                    ) {
+                        onNavigate(SettingsRoute.Tracker)
                     }
                 }
 

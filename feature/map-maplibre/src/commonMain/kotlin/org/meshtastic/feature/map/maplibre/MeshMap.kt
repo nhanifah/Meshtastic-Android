@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import org.koin.compose.viewmodel.koinViewModel
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
@@ -82,6 +83,7 @@ import org.meshtastic.feature.map.maplibre.layers.MapOverlayLayers
 import org.meshtastic.feature.map.maplibre.layers.NodeLayers
 import org.meshtastic.feature.map.maplibre.layers.RasterBasemapLayer
 import org.meshtastic.feature.map.maplibre.layers.TerrainLayers
+import org.meshtastic.feature.map.maplibre.layers.TrackerLayers
 import org.meshtastic.feature.map.maplibre.layers.WaypointLayers
 import org.meshtastic.feature.map.maplibre.style.Basemap
 import org.meshtastic.feature.map.maplibre.style.Basemaps
@@ -90,6 +92,8 @@ import org.meshtastic.feature.map.maplibre.style.MapOverlay
 import org.meshtastic.feature.map.maplibre.style.toBaseStyle
 import org.meshtastic.feature.map.maplibre.style.zoomRange
 import org.meshtastic.feature.map.maplibre.tiles.InstallRadarSmoothing
+import org.meshtastic.feature.map.tracker.TrackerViewModel
+import org.meshtastic.feature.map.tracker.visibleTrails
 import kotlin.math.floor
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.layers.LocationIndicatorDefaults as CoreLocationIndicatorDefaults
@@ -145,6 +149,8 @@ fun rememberMeshMapState(
     val filterState by viewModel.mapFilterStateFlow.collectAsStateWithLifecycle()
     val myNodeInfo by viewModel.myNodeInfo.collectAsStateWithLifecycle()
     val displayUnits by viewModel.displayUnits.collectAsStateWithLifecycle()
+    val trackerViewModel: TrackerViewModel = koinViewModel()
+    val tracker by trackerViewModel.state.collectAsStateWithLifecycle()
 
     val scope = rememberCoroutineScope()
     // The style block recomposes on every camera frame (it reads the viewport below); the mesh-wide filter should not.
@@ -153,6 +159,9 @@ fun rememberMeshMapState(
         remember(nodes, filterState, myNodeInfo) {
             MapNodePolicy.visibleNodes(nodes, filterState, nowSeconds, myNodeInfo?.myNodeNum)
         }
+    // Trails follow the map's own filters: a node the filter hides takes its trail with it.
+    val trails = remember(tracker, visibleNodes) { tracker.visibleTrails(visibleNodes) }
+    val trailColors = remember(visibleNodes) { visibleNodes.associate { it.num to it.colors.second } }
 
     InstallRadarSmoothing()
     val mapState =
@@ -175,6 +184,10 @@ fun rememberMeshMapState(
 
             if (filterState.showWaypoints) {
                 WaypointLayers(waypoints = waypoints.values, onWaypointClick = onWaypointClick)
+            }
+
+            if (trails.isNotEmpty()) {
+                TrackerLayers(trails = trails, nodeColors = trailColors, settings = tracker.settings)
             }
 
             MeshMapNodeLayers(

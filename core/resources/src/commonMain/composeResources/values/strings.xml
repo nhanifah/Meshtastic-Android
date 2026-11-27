@@ -2337,6 +2337,17 @@
     <string name="traceroute_unknown_hop">Unknown hop</string>
     <string name="track_and_share_locations">Track and Share Locations</string>
     <string name="track_point">track point</string>
+    <!-- TRACKER -->
+    <string name="tracker_enabled">Show trails on the map</string>
+    <string name="tracker_enabled_summary">Draw a trail behind every node that moves, in the node\'s own colour</string>
+    <string name="tracker_show_direction">Direction line</string>
+    <string name="tracker_show_direction_summary">A short line ahead of a moving node, pointing where it is heading</string>
+    <string name="tracker_show_dots">Dot on every position</string>
+    <string name="tracker_show_jumps">Dashed jumps</string>
+    <string name="tracker_show_jumps_summary">A dashed line where a node went quiet for a long time or moved too far to have travelled there</string>
+    <string name="tracker_summary">Trails behind moving nodes on the map</string>
+    <string name="tracker_tail_length">Trail length: %1$s</string>
+    <string name="tracker_title">Live tracker</string>
     <!-- TRAFFIC -->
     <string name="traffic_management">Traffic Management</string>
     <string name="traffic_management_config">Traffic Management Configuration</string>

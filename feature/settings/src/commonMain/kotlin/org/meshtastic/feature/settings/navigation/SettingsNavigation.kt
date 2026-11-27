@@ -88,6 +88,8 @@ import org.meshtastic.feature.settings.radio.component.TelemetryConfigScreen
 import org.meshtastic.feature.settings.radio.component.UserConfigScreen
 import org.meshtastic.feature.settings.search.LocalSettingsFieldFocus
 import org.meshtastic.feature.settings.search.SettingsFieldFocus
+import org.meshtastic.feature.settings.tracker.TrackerSettingsScreen
+import org.meshtastic.feature.settings.tracker.TrackerSettingsViewModel
 import org.meshtastic.feature.settings.webaccess.WebAccessScreen
 import kotlin.reflect.KClass
 
@@ -453,6 +455,13 @@ fun EntryProviderScope<NavKey>.settingsGraph(
         val settingsViewModel: SettingsViewModel = koinViewModel()
         NodeListScreen(
             settingsViewModel = settingsViewModel,
+            onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() },
+        )
+    }
+
+    entry<SettingsRoute.Tracker> {
+        TrackerSettingsScreen(
+            viewModel = koinViewModel<TrackerSettingsViewModel>(),
             onNavigateUp = dropUnlessResumed { backStack.removeLastOrNull() },
         )
     }

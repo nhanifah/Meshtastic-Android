@@ -67,6 +67,8 @@ import org.meshtastic.core.resources.help_and_documentation
 import org.meshtastic.core.resources.import_configuration
 import org.meshtastic.core.resources.node_layout_section_title
 import org.meshtastic.core.resources.preferences_language
+import org.meshtastic.core.resources.tracker_summary
+import org.meshtastic.core.resources.tracker_title
 import org.meshtastic.core.resources.wifi_devices
 import org.meshtastic.core.ui.component.ListItem
 import org.meshtastic.core.ui.component.MeshtasticDialog
@@ -76,6 +78,7 @@ import org.meshtastic.core.ui.icon.HelpOutline
 import org.meshtastic.core.ui.icon.List
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.PhoneAndroid
+import org.meshtastic.core.ui.icon.Route
 import org.meshtastic.core.ui.icon.SettingsRemote
 import org.meshtastic.core.ui.icon.Wifi
 import org.meshtastic.core.ui.util.isBluetoothSupported
@@ -315,6 +318,13 @@ fun SettingsScreen(
                         leadingIcon = MeshtasticIcons.List,
                     ) {
                         onNavigate(SettingsRoute.NodeList)
+                    }
+                    ListItem(
+                        text = stringResource(Res.string.tracker_title),
+                        supportingText = stringResource(Res.string.tracker_summary),
+                        leadingIcon = MeshtasticIcons.Route,
+                    ) {
+                        onNavigate(SettingsRoute.Tracker)
                     }
                     // Wi-Fi provisioning reaches the device over BLE.
                     if (isBluetoothSupported()) {
