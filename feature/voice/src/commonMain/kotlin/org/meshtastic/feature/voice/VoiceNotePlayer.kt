@@ -59,25 +59,34 @@ class VoiceNotePlayer(private val scope: ApplicationCoroutineScope, private val 
         job =
             scope.launch(dispatchers.io) {
                 try {
-                    Codec2.open(clip.codec.mode).use { c2 ->
-                        audio.openOutput().use { out ->
-                            var position = 0
-                            for (segment in clip.segments) {
-                                ensureActive()
-                                val (pcm, frames) =
-                                    when (segment) {
-                                        is VoiceClip.Segment.Audio ->
-                                            c2.decode(segment.frames.toByteArray()) to
-                                                segment.frames.size / clip.codec.bytesPerFrame
+                    // Decode the whole note first (30 s is under half a megabyte of PCM) so it can be levelled as
+                    // one: a quietly recorded note is brought up instead of playing as near-silence.
+                    val pcm =
+                        Codec2.open(clip.codec.mode).use { c2 ->
+                            clip.segments.map { segment ->
+                                when (segment) {
+                                    is VoiceClip.Segment.Audio -> c2.decode(segment.frames.toByteArray())
 
-                                        is VoiceClip.Segment.Silence ->
-                                            ShortArray(segment.frames * clip.codec.samplesPerFrame) to segment.frames
-                                    }
-                                out.write(pcm)
-                                position += frames * clip.codec.frameMs
+                                    is VoiceClip.Segment.Silence ->
+                                        ShortArray(segment.frames * clip.codec.samplesPerFrame)
+                                }
+                            }
+                        }
+                    val gain = VoiceLevel.gainFor(pcm)
+                    val samplesPerMs = clip.codec.samplesPerFrame / clip.codec.frameMs
+                    audio.openOutput().use { out ->
+                        var position = 0
+                        // Write in short slices so the progress bar moves smoothly and pause answers quickly.
+                        for (block in pcm) {
+                            for (start in block.indices step SLICE_SAMPLES) {
+                                ensureActive()
+                                val slice = block.copyOfRange(start, minOf(start + SLICE_SAMPLES, block.size))
+                                out.write(VoiceLevel.apply(slice, gain))
+                                position += slice.size / samplesPerMs
                                 stateFlow.value = NotePlayback(stored, position, clip.durationMs)
                             }
                         }
+                        out.drain()
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -87,5 +96,10 @@ class VoiceNotePlayer(private val scope: ApplicationCoroutineScope, private val 
                     if (stateFlow.value.note == stored) stateFlow.value = NotePlayback()
                 }
             }
+    }
+
+    private companion object {
+        /** 200 ms at 8 kHz. */
+        const val SLICE_SAMPLES = 1_600
     }
 }

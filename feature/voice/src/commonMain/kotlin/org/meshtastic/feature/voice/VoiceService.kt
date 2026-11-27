@@ -459,7 +459,10 @@ class VoiceService(
 
                             LiveJitterBuffer.Next.Waiting -> delay(LIVE_POLL_MS)
 
-                            LiveJitterBuffer.Next.Ended -> break
+                            LiveJitterBuffer.Next.Ended -> {
+                                out?.drain()
+                                break
+                            }
                         }
                         if (out == null && next !is LiveJitterBuffer.Next.Waiting) delay(codec.frameMs.toLong())
                     }

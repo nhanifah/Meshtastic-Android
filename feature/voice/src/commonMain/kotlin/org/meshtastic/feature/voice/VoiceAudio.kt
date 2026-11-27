@@ -35,6 +35,42 @@ interface VoiceAudio {
 
 interface VoiceAudioOut : AutoCloseable {
     fun write(pcm: ShortArray)
+
+    /**
+     * Waits until everything written has come out of the speaker. [close] stops at once and drops what is still
+     * buffered, which on Android can be the whole of a short note, so call this first when playback ends normally.
+     */
+    suspend fun drain() {}
+}
+
+/** Loudness helpers for decoded speech. */
+object VoiceLevel {
+    private const val TARGET_PEAK = 22_000
+    private const val MAX_GAIN = 6f
+    private const val MIN_PEAK = 64
+
+    /**
+     * The gain that brings [pcm]'s peak up to a comfortable level, capped so near-silence is not blown up into hiss.
+     * Never below 1: loud notes are left alone.
+     */
+    fun gainFor(pcm: List<ShortArray>): Float {
+        var peak = 0
+        for (block in pcm) {
+            for (s in block) {
+                val a = if (s < 0) -s.toInt() else s.toInt()
+                if (a > peak) peak = a
+            }
+        }
+        if (peak < MIN_PEAK) return 1f
+        return (TARGET_PEAK.toFloat() / peak).coerceIn(1f, MAX_GAIN)
+    }
+
+    fun apply(pcm: ShortArray, gain: Float): ShortArray {
+        if (gain == 1f) return pcm
+        return ShortArray(pcm.size) { i ->
+            (pcm[i] * gain).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+        }
+    }
 }
 
 expect fun platformVoiceAudio(): VoiceAudio

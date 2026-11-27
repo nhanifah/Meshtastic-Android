@@ -94,8 +94,11 @@ private object JvmVoiceAudio : VoiceAudio {
                 line.write(bytes, 0, bytes.size)
             }
 
-            override fun close() {
+            override suspend fun drain() {
                 line.drain()
+            }
+
+            override fun close() {
                 line.stop()
                 line.close()
             }

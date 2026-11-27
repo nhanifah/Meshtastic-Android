@@ -28,11 +28,16 @@ import android.media.audiofx.AutomaticGainControl
 import android.media.audiofx.NoiseSuppressor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withTimeoutOrNull
 import org.meshtastic.core.codec2.CODEC2_SAMPLE_RATE_HZ
+
+private const val DRAIN_POLL_MS = 20L
+private const val DRAIN_SLACK_MS = 1_500L
 
 private object AndroidVoiceAudio : VoiceAudio {
     override val available = true
@@ -108,8 +113,24 @@ private object AndroidVoiceAudio : VoiceAudio {
                 .build()
         track.play()
         return object : VoiceAudioOut {
+            private var written = 0L
+
             override fun write(pcm: ShortArray) {
-                track.write(pcm, 0, pcm.size)
+                val n = track.write(pcm, 0, pcm.size)
+                if (n > 0) written += n
+            }
+
+            override suspend fun drain() {
+                if (written == 0L) return
+                val target = written
+                // A track only starts once its buffer has filled to a threshold; push silence after the end so a
+                // short note is not left sitting below it.
+                val pad = ShortArray(maxOf(track.bufferSizeInFrames, CODEC2_SAMPLE_RATE_HZ / 4))
+                track.write(pad, 0, pad.size, AudioTrack.WRITE_NON_BLOCKING)
+                val limitMs = target * 1000 / CODEC2_SAMPLE_RATE_HZ + DRAIN_SLACK_MS
+                withTimeoutOrNull(limitMs) {
+                    while ((track.playbackHeadPosition.toLong() and 0xFFFF_FFFFL) < target) delay(DRAIN_POLL_MS)
+                }
             }
 
             override fun close() {

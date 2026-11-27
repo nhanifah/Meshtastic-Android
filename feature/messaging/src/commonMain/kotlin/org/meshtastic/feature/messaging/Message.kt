@@ -508,9 +508,15 @@ fun MessageScreen(
                     )
                     val voiceUi = LocalVoiceUi.current
                     voiceUi?.LiveBanner(contactKey = contactKey, modifier = Modifier.fillMaxWidth())
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Top-aligned: the field keeps an empty counter line under it, so centring would put the
+                    // voice buttons below the field. 8 dp = 4 dp field padding + (56 dp field - 48 dp button) / 2.
+                    Row(verticalAlignment = Alignment.Top) {
                         // Voice decides its own availability: over MQTT it works without a connected radio.
-                        voiceUi?.ComposerActions(contactKey = contactKey, enabled = true, modifier = Modifier)
+                        voiceUi?.ComposerActions(
+                            contactKey = contactKey,
+                            enabled = true,
+                            modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                        )
                         MessageInput(
                             isEnabled = connectionState is ConnectionState.Connected,
                             isHomoglyphEncodingEnabled = homoglyphEncodingEnabled,

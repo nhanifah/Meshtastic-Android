@@ -16,23 +16,31 @@
  */
 package org.meshtastic.feature.voice.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import okio.ByteString
@@ -44,13 +52,20 @@ import org.meshtastic.core.resources.voice_missing_parts
 import org.meshtastic.core.resources.voice_note
 import org.meshtastic.core.resources.voice_pause
 import org.meshtastic.core.resources.voice_play
+import org.meshtastic.core.ui.icon.CellTower
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.Pause
 import org.meshtastic.core.ui.icon.PlayArrow
 import org.meshtastic.feature.voice.VoiceClip
 import org.meshtastic.feature.voice.VoiceComposerViewModel
 
-/** The inside of a voice-note bubble: play/pause, length (or position while playing), losses, and forward to LoRa. */
+private val PlayButtonSize = 36.dp
+private val TrackWidth = 132.dp
+
+/**
+ * The inside of a voice-note bubble, kept as compact as a short text message: a round play button, a progress track
+ * with the time and bit rate under it, and (when a radio is connected) a small button that pushes the note onto LoRa.
+ */
 @Composable
 internal fun VoiceNoteBody(
     payload: ByteString,
@@ -68,53 +83,91 @@ internal fun VoiceNoteBody(
     val playback by viewModel.playback.collectAsStateWithLifecycle()
     val radioReady by viewModel.radioReady.collectAsStateWithLifecycle()
     val playing = playback.note == payload
+    val progress = if (playing && playback.durationMs > 0) playback.positionMs.toFloat() / playback.durationMs else 0f
 
-    Column(modifier = modifier.widthIn(min = 200.dp)) {
+    Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(enabled = viewModel.supported, onClick = { viewModel.togglePlay(payload) }) {
-                Icon(
-                    if (playing) MeshtasticIcons.Pause else MeshtasticIcons.PlayArrow,
-                    contentDescription = stringResource(if (playing) Res.string.voice_pause else Res.string.voice_play),
-                    tint = contentColor,
-                )
+            PlayButton(playing = playing, enabled = viewModel.supported, tint = contentColor) {
+                viewModel.togglePlay(payload)
             }
-            Column {
-                if (playing && playback.durationMs > 0) {
-                    LinearProgressIndicator(
-                        progress = { playback.positionMs.toFloat() / playback.durationMs },
-                        modifier = Modifier.width(120.dp),
+            Spacer(Modifier.width(10.dp))
+            ProgressAndTime(
+                progress = progress,
+                time =
+                if (playing) {
+                    formatClock(playback.positionMs.toLong()) + " / " + formatClock(clip.durationMs.toLong())
+                } else {
+                    formatClock(clip.durationMs.toLong())
+                },
+                bitRate = clip.codec.bitsPerSecond,
+                color = contentColor,
+            )
+            // Anyone can push a note onto the local mesh: someone else's that came over MQTT, or our own sent online.
+            if (radioReady && viewModel.supported) {
+                Spacer(Modifier.width(4.dp))
+                IconButton(
+                    onClick = { viewModel.forwardToLora(contactKey, payload) },
+                    modifier = Modifier.size(PlayButtonSize),
+                ) {
+                    Icon(
+                        MeshtasticIcons.CellTower,
+                        contentDescription = stringResource(Res.string.voice_forward_lora),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
-                Text(
-                    text =
-                    if (playing) {
-                        formatClock(playback.positionMs.toLong()) + " / " + formatClock(clip.durationMs.toLong())
-                    } else {
-                        stringResource(Res.string.voice_note) + " · " + formatClock(clip.durationMs.toLong())
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = contentColor,
-                )
             }
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "${clip.codec.bitsPerSecond} bps",
-                style = MaterialTheme.typography.labelSmall,
-                color = contentColor.copy(alpha = 0.7f),
-            )
         }
         if (clip.missingChunks > 0) {
             Text(
                 text = stringResource(Res.string.voice_missing_parts, clip.missingChunks, clip.chunks.size),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
-        // Anyone can push a note onto the local mesh: someone else's that came over MQTT, or our own sent online.
-        if (radioReady && viewModel.supported) {
-            TextButton(onClick = { viewModel.forwardToLora(contactKey, payload) }) {
-                Text(stringResource(Res.string.voice_forward_lora), style = MaterialTheme.typography.labelSmall)
-            }
+    }
+}
+
+@Composable
+private fun PlayButton(playing: Boolean, enabled: Boolean, tint: Color, onClick: () -> Unit) {
+    Box(
+        modifier =
+        Modifier.size(PlayButtonSize)
+            .clip(CircleShape)
+            .background(tint.copy(alpha = 0.12f))
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (playing) MeshtasticIcons.Pause else MeshtasticIcons.PlayArrow,
+            contentDescription = stringResource(if (playing) Res.string.voice_pause else Res.string.voice_play),
+            tint = tint,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+@Composable
+private fun ProgressAndTime(progress: Float, time: String, bitRate: Int, color: Color) {
+    Column(modifier = Modifier.width(TrackWidth)) {
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.width(TrackWidth).height(4.dp),
+            color = color,
+            trackColor = color.copy(alpha = 0.2f),
+            strokeCap = StrokeCap.Round,
+            drawStopIndicator = {},
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(modifier = Modifier.width(TrackWidth), verticalAlignment = Alignment.CenterVertically) {
+            Text(text = time, style = MaterialTheme.typography.labelMedium, color = color)
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = "$bitRate bps",
+                style = MaterialTheme.typography.labelSmall,
+                color = color.copy(alpha = 0.7f),
+            )
         }
     }
 }
