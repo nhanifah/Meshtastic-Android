@@ -277,7 +277,18 @@ class VoiceService(
             read = true,
         )
 
+    /**
+     * Whether this note is already in the database: our own sent copy (stored under the same clip id), or the same note
+     * heard before over the other transport. The reassembler only remembers finished notes in memory, so after a
+     * restart a broker redelivery or a radio replay would otherwise add a second bubble.
+     */
+    private suspend fun alreadyStored(clip: VoiceClip): Boolean = packetRepository.findPacketsWithId(clip.clipId).any {
+        it.dataType == PortNum.AUDIO_APP.value &&
+            it.bytes?.let { bytes -> VoiceClip.fromStored(bytes)?.origin } == clip.origin
+    }
+
     private suspend fun store(clip: VoiceClip, contactKey: String) {
+        if (clip.origin == myNum || alreadyStored(clip)) return
         val broadcast = contactKey.endsWith(NodeAddress.ID_BROADCAST)
         val channel = ContactKey(contactKey).channelOrNull ?: 0
         packetRepository.insert(
@@ -342,6 +353,9 @@ class VoiceService(
     }
 
     private suspend fun dispatch(packet: VoicePacket, contactKey: String) {
+        // Our own voice echoed back (our MQTT subscription, or a radio/gateway replay): never a new bubble, never
+        // played to ourselves.
+        if (myNum != 0 && packet.origin == myNum) return
         when (packet.type) {
             VoicePacketType.NOTE_CHUNK,
             VoicePacketType.NOTE_WHOLE,

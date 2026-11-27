@@ -34,8 +34,8 @@ interface VoiceUi {
     @Composable
     fun NoteBody(payload: ByteString, fromLocal: Boolean, contactKey: String, contentColor: Color, modifier: Modifier)
 
-    /** The small hold-to-talk (live push-to-talk) button at the start of the message field. */
-    @Composable fun PushToTalkButton(contactKey: String, modifier: Modifier)
+    /** The top-bar button that opens the push-to-talk screen (one large round talk button) for [contactKey]. */
+    @Composable fun PushToTalkAction(contactKey: String, title: String, modifier: Modifier)
 
     /**
      * The round button at the end of the composer while the field is empty: hold to record a voice note, release to

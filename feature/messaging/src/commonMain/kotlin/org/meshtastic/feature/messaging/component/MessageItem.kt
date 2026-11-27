@@ -73,6 +73,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.meshtastic.core.common.util.DateFormatter
@@ -282,8 +283,18 @@ fun MessageItem(
             message.filtered || (inSelectionMode && !selected) -> NODE_TINT_MUTED
             else -> NODE_TINT_NORMAL
         }
-    val containerColor = nodeTintedContainer(nodeColor, fraction = tintFraction)
-    val cardBorder = nodeBorderStroke(nodeColor, active = selected)
+    // One to three emoji on their own (a sticker) are drawn large and without a bubble, as WhatsApp does.
+    val jumboEmoji =
+        remember(bodyText, message.portNum, searchQuery) {
+            if (message.portNum != VOICE_NOTE_PORT_NUM && searchQuery.isEmpty()) emojiOnlyCount(bodyText) else 0
+        }
+    val containerColor =
+        if (jumboEmoji > 0 && !selected) {
+            Color.Transparent
+        } else {
+            nodeTintedContainer(nodeColor, fraction = tintFraction)
+        }
+    val cardBorder = if (jumboEmoji > 0 && !selected) null else nodeBorderStroke(nodeColor, active = selected)
     val contentColor = MaterialTheme.colorScheme.onSurface
     val metadataStyle = MaterialTheme.typography.labelSmall
     val messageShape =
@@ -485,7 +496,22 @@ fun MessageItem(
                             }
                         AutoLinkText(
                             text = bodyText,
-                            style = MaterialTheme.typography.bodyLarge,
+                            style =
+                            when (jumboEmoji) {
+                                0 -> MaterialTheme.typography.bodyLarge
+
+                                1 ->
+                                    MaterialTheme.typography.bodyLarge.copy(
+                                        fontSize = 56.sp,
+                                        lineHeight = 64.sp,
+                                    )
+
+                                else ->
+                                    MaterialTheme.typography.bodyLarge.copy(
+                                        fontSize = 42.sp,
+                                        lineHeight = 50.sp,
+                                    )
+                            },
                             color = contentColor,
                             mentionName = mentionDisplayName,
                             onMentionClick = { id -> resolveMention(id)?.let(onClickChip) },

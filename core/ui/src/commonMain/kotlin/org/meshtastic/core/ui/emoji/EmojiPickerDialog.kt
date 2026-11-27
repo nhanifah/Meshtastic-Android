@@ -53,6 +53,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -102,6 +103,8 @@ import org.meshtastic.core.resources.emoji_category_travel_places
 import org.meshtastic.core.resources.emoji_load_error
 import org.meshtastic.core.resources.emoji_no_results
 import org.meshtastic.core.resources.emoji_recently_used
+import org.meshtastic.core.resources.emoji_tab_emoji
+import org.meshtastic.core.resources.emoji_tab_stickers
 import org.meshtastic.core.resources.search_emoji
 import org.meshtastic.core.ui.icon.Close
 import org.meshtastic.core.ui.icon.MeshtasticIcons
@@ -143,13 +146,19 @@ private val DEFAULT_QUICK_REACTIONS = listOf("👍", "❤️", "😂", "😮", "
  *
  * @param selectedEmojis Set of emoji strings already selected (e.g. applied reactions). Matched emojis are highlighted
  *   with a tinted background.
+ * @param stickers When not empty, a second "Stickers" tab shows these as large tiles; picking one calls [onSticker]
+ *   (the composer sends it straight away) instead of [onConfirm].
  */
+@Suppress("LongMethod")
 @Composable
 fun EmojiPickerDialog(
     onDismiss: () -> Unit = {},
     selectedEmojis: Set<String> = emptySet(),
+    stickers: List<String> = emptyList(),
+    onSticker: (String) -> Unit = {},
     onConfirm: (String) -> Unit,
 ) {
+    var tab by rememberSaveable { mutableStateOf(0) }
     val viewModel: EmojiPickerViewModel = koinViewModel()
     val isLoaded by viewModel.isLoaded.collectAsStateWithLifecycle()
     val loadError by viewModel.loadError.collectAsStateWithLifecycle()
@@ -179,7 +188,30 @@ fun EmojiPickerDialog(
             enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
         ),
     ) {
-        if (loadError) {
+        if (stickers.isNotEmpty()) {
+            PrimaryTabRow(selectedTabIndex = tab) {
+                Tab(
+                    selected = tab == 0,
+                    onClick = { tab = 0 },
+                    text = { Text(stringResource(Res.string.emoji_tab_emoji)) },
+                )
+                Tab(
+                    selected = tab == 1,
+                    onClick = { tab = 1 },
+                    text = { Text(stringResource(Res.string.emoji_tab_stickers)) },
+                )
+            }
+        }
+        if (stickers.isNotEmpty() && tab == 1) {
+            StickerGrid(
+                stickers = stickers,
+                onPick = { sticker ->
+                    recordSelection(sticker, viewModel)
+                    onDismiss()
+                    onSticker(sticker)
+                },
+            )
+        } else if (loadError) {
             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                 Text(
                     text = stringResource(Res.string.emoji_load_error),
@@ -236,6 +268,25 @@ fun rememberQuickReactions(count: Int = DEFAULT_QUICK_REACTION_COUNT): List<Stri
                 if (default !in padded) padded.add(default)
             }
             padded.take(count)
+        }
+    }
+}
+
+/** Large tiles: a sticker here is an emoji sent on its own, which chat screens draw big without a bubble. */
+@Composable
+private fun StickerGrid(stickers: List<String>, onPick: (String) -> Unit) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 80.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+        contentPadding = PaddingValues(12.dp),
+    ) {
+        items(stickers.size) { i ->
+            Box(
+                modifier = Modifier.size(80.dp).clip(RoundedCornerShape(16.dp)).clickable { onPick(stickers[i]) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = stickers[i], fontSize = 48.sp)
+            }
         }
     }
 }

@@ -26,7 +26,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,7 +48,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -72,7 +70,6 @@ import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.voice_cancel_note
 import org.meshtastic.core.resources.voice_hold_to_record
 import org.meshtastic.core.resources.voice_mic_permission
-import org.meshtastic.core.resources.voice_push_to_talk
 import org.meshtastic.core.resources.voice_record
 import org.meshtastic.core.resources.voice_result_forwarded
 import org.meshtastic.core.resources.voice_result_no_radio
@@ -97,7 +94,6 @@ import org.meshtastic.core.ui.icon.Lock
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.Mic
 import org.meshtastic.core.ui.icon.Send
-import org.meshtastic.core.ui.icon.VolumeUp
 import org.meshtastic.core.ui.util.PermissionStatus
 import org.meshtastic.core.ui.util.rememberMicrophonePermissionState
 import org.meshtastic.feature.voice.ComposerVoiceState
@@ -111,52 +107,6 @@ private const val MILLIS = 1_000
 internal fun formatClock(ms: Long): String {
     val total = (ms / MILLIS).toInt()
     return "${total / SECONDS_PER_MINUTE}:${(total % SECONDS_PER_MINUTE).toString().padStart(2, '0')}"
-}
-
-/** The small hold-to-talk button at the start of the message field: live push-to-talk, released to stop. */
-@Composable
-internal fun VoicePushToTalkButton(contactKey: String, modifier: Modifier = Modifier) {
-    val viewModel = koinViewModel<VoiceComposerViewModel>()
-    if (!viewModel.supported) return
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val mic = rememberMicrophonePermissionState()
-    val micGranted = mic.status == PermissionStatus.GRANTED
-    val currentKey by rememberUpdatedState(contactKey)
-    val talking = state is ComposerVoiceState.Talking
-    val enabled = state == ComposerVoiceState.Idle || talking
-    val label = stringResource(Res.string.voice_push_to_talk)
-    val press by rememberUpdatedState { if (micGranted) viewModel.startTalk(currentKey) else mic.request() }
-
-    Box(
-        modifier =
-        modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(if (talking) MaterialTheme.colorScheme.error else Color.Transparent)
-            .semantics { contentDescription = label }
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
-                detectTapGestures(
-                    onPress = {
-                        press()
-                        tryAwaitRelease()
-                        viewModel.stopTalk()
-                    },
-                )
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            MeshtasticIcons.VolumeUp,
-            contentDescription = null,
-            tint =
-            when {
-                talking -> MaterialTheme.colorScheme.onError
-                enabled -> MaterialTheme.colorScheme.onSurfaceVariant
-                else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-            },
-        )
-    }
 }
 
 /** Follows one held finger until it lifts, slides far enough left (cancel) or up (lock), or the note ends. */

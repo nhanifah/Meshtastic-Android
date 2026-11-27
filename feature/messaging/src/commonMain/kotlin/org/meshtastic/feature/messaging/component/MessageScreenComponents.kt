@@ -383,6 +383,7 @@ fun ActionModeTopBar(selectedCount: Int, onAction: (MessageMenuAction) -> Unit) 
  * @param onNavigateBack Callback for the navigation icon.
  * @param channels The set of all channels, used for the [SecurityIcon].
  * @param channelIndexParam The specific channel index for the [SecurityIcon].
+ * @param extraActions Shown first among the actions (the voice push-to-talk button).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -404,6 +405,7 @@ fun MessageTopBar(
     onToggleShowFiltered: () -> Unit = {},
     onNavigateToFilterSettings: () -> Unit = {},
     onSearchClick: () -> Unit = {},
+    extraActions: @Composable () -> Unit = {},
 ) = TopAppBar(
     title = {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -424,6 +426,7 @@ fun MessageTopBar(
         }
     },
     actions = {
+        extraActions()
         IconButton(onClick = onSearchClick) {
             Icon(
                 imageVector = MeshtasticIcons.Search,

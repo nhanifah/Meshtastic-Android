@@ -640,6 +640,7 @@ eight_hours
 electrical_conductivity
 elevation_suffix
 ### EMOJI ###
+emoji_and_stickers
 emoji_category_activities
 emoji_category_animals_nature
 emoji_category_flags
@@ -652,6 +653,8 @@ emoji_category_travel_places
 emoji_load_error
 emoji_no_results
 emoji_recently_used
+emoji_tab_emoji
+emoji_tab_stickers
 enabled
 encryption_error
 encryption_error_text
@@ -2396,6 +2399,9 @@ voice_note
 voice_open_mqtt_settings
 voice_pause
 voice_play
+voice_ptt_tap_to_stop
+voice_ptt_tap_to_talk
+voice_ptt_title
 voice_public_channels_blocked
 voice_push_to_talk
 voice_record

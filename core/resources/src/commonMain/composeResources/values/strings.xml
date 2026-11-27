@@ -679,6 +679,7 @@
     <string name="electrical_conductivity">Conductivity</string>
     <string name="elevation_suffix" translatable="false">MSL</string>
     <!-- EMOJI -->
+    <string name="emoji_and_stickers">Emoji and stickers</string>
     <string name="emoji_category_activities">Activities</string>
     <string name="emoji_category_animals_nature">Animals &amp; Nature</string>
     <string name="emoji_category_flags">Flags</string>
@@ -691,6 +692,8 @@
     <string name="emoji_load_error">Unable to load emoji</string>
     <string name="emoji_no_results">No emoji found</string>
     <string name="emoji_recently_used">Recently Used</string>
+    <string name="emoji_tab_emoji">Emoji</string>
+    <string name="emoji_tab_stickers">Stickers</string>
     <string name="enabled">Enabled</string>
     <string name="encryption_error">Public key mismatch</string>
     <string name="encryption_error_text">The public key does not match the recorded key. You may remove the node and let it exchange keys again, but this may indicate a more security problem. Contact the user through another trusted channel, to determine if the key change was due to a factory reset or other intentional action.</string>
@@ -2471,6 +2474,9 @@
     <string name="voice_open_mqtt_settings">Open MQTT settings</string>
     <string name="voice_pause">Pause voice note</string>
     <string name="voice_play">Play voice note</string>
+    <string name="voice_ptt_tap_to_stop">Tap to stop</string>
+    <string name="voice_ptt_tap_to_talk">Tap to talk</string>
+    <string name="voice_ptt_title">Push-to-talk</string>
     <string name="voice_public_channels_blocked">Channels with a public key are not used for voice on the public server</string>
     <string name="voice_push_to_talk">Hold to talk</string>
     <string name="voice_record">Record voice note</string>

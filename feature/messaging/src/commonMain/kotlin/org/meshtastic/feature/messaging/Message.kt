@@ -44,6 +44,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -103,12 +104,15 @@ import org.meshtastic.core.model.effectiveLongName
 import org.meshtastic.core.model.util.getChannel
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.archived_channel_read_only
+import org.meshtastic.core.resources.emoji_and_stickers
 import org.meshtastic.core.resources.send
 import org.meshtastic.core.resources.type_a_message
 import org.meshtastic.core.resources.unknown_channel
 import org.meshtastic.core.ui.component.InlineStyle
 import org.meshtastic.core.ui.component.ShareContactDialog
 import org.meshtastic.core.ui.component.smartScrollToIndex
+import org.meshtastic.core.ui.emoji.EmojiPickerDialog
+import org.meshtastic.core.ui.icon.AddReaction
 import org.meshtastic.core.ui.icon.History
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.Send
@@ -117,6 +121,7 @@ import org.meshtastic.core.ui.util.LocalVoiceUi
 import org.meshtastic.core.ui.util.createClipEntry
 import org.meshtastic.core.ui.util.isFromSoftKeyboard
 import org.meshtastic.feature.messaging.component.ActionModeTopBar
+import org.meshtastic.feature.messaging.component.COMPOSER_STICKERS
 import org.meshtastic.feature.messaging.component.DeleteMessageDialog
 import org.meshtastic.feature.messaging.component.FormattingToolbar
 import org.meshtastic.feature.messaging.component.MESSAGE_CHARACTER_LIMIT_BYTES
@@ -483,6 +488,13 @@ fun MessageScreen(
                     onToggleShowFiltered = viewModel::toggleShowFiltered,
                     onNavigateToFilterSettings = navigateToFilterSettings,
                     onSearchClick = viewModel::toggleSearch,
+                    extraActions = {
+                        LocalVoiceUi.current?.PushToTalkAction(
+                            contactKey = contactKey,
+                            title = title,
+                            modifier = Modifier,
+                        )
+                    },
                 )
             }
         },
@@ -519,7 +531,9 @@ fun MessageScreen(
                         isHomoglyphEncodingEnabled = homoglyphEncodingEnabled,
                         textFieldState = messageInputState,
                         mentionCandidates = mentionCandidates,
-                        leadingAction = voiceUi?.let { ui -> { ui.PushToTalkButton(contactKey, Modifier) } },
+                        onSendSticker = { sticker ->
+                            onEvent(MessageScreenEvent.SendMessage(sticker, replyingToPacketId))
+                        },
                         idleAction = voiceUi?.let { ui -> { m -> ui.RecordButton(contactKey, m) } },
                         fieldOverlay = voiceUi?.let { ui -> { m -> ui.RecordingBar(contactKey, m) } },
                         onSendMessage = {
@@ -834,7 +848,8 @@ internal fun RetiredChannelNotice(modifier: Modifier = Modifier) {
  *   fed to the field's [OutputTransformation] through a state holder, never by replacing the transformation.
  * @param modifier The modifier for this composable.
  * @param maxByteSize The maximum allowed size of the message in bytes.
- * @param leadingAction Shown at the start of the field (live push-to-talk).
+ * @param onSendSticker When set, the field starts with an emoji button: emoji go into the text, stickers (large emoji)
+ *   are sent at once through this callback.
  * @param idleAction Replaces the round send button while the field is empty (hold-to-record voice note), WhatsApp
  *   style; null keeps the send button.
  * @param fieldOverlay Drawn over the field, sized to it (the voice recording bar); it draws nothing when idle.
@@ -849,7 +864,7 @@ internal fun MessageInput(
     mentionCandidates: ImmutableMap<String, MentionCandidate>,
     modifier: Modifier = Modifier,
     maxByteSize: Int = MESSAGE_CHARACTER_LIMIT_BYTES,
-    leadingAction: (@Composable () -> Unit)? = null,
+    onSendSticker: ((String) -> Unit)? = null,
     idleAction: (@Composable (Modifier) -> Unit)? = null,
     fieldOverlay: (@Composable (Modifier) -> Unit)? = null,
     onSendMessage: () -> Unit,
@@ -905,6 +920,34 @@ internal fun MessageInput(
     }
 
     var isFocused by remember { mutableStateOf(false) }
+    var showEmojiPicker by remember { mutableStateOf(false) }
+    val emojiButton: (@Composable () -> Unit)? =
+        if (onSendSticker != null) {
+            {
+                IconButton(onClick = { showEmojiPicker = true }, enabled = isEnabled) {
+                    Icon(
+                        MeshtasticIcons.AddReaction,
+                        contentDescription = stringResource(Res.string.emoji_and_stickers),
+                    )
+                }
+            }
+        } else {
+            null
+        }
+    if (showEmojiPicker && onSendSticker != null) {
+        EmojiPickerDialog(
+            onDismiss = { showEmojiPicker = false },
+            stickers = COMPOSER_STICKERS,
+            onSticker = onSendSticker,
+            onConfirm = { emoji ->
+                textFieldState.edit {
+                    val start = selection.min
+                    replace(start, selection.max, emoji)
+                    selection = TextRange(start + emoji.length)
+                }
+            },
+        )
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (mentionActive) {
@@ -955,7 +998,7 @@ internal fun MessageInput(
                     // The current approach (show error, disable send) is generally preferred for UX.
                     // If strict real-time byte trimming is required, it needs careful handling of
                     // cursor position and multi-byte characters, likely outside simple inputTransformation.
-                    leadingIcon = leadingAction,
+                    leadingIcon = emojiButton,
                 )
                 fieldOverlay?.invoke(Modifier.matchParentSize())
             }
