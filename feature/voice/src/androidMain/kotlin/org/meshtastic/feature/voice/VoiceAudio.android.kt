@@ -24,8 +24,6 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
-import android.media.audiofx.AutomaticGainControl
-import android.media.audiofx.NoiseSuppressor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -38,6 +36,7 @@ import org.meshtastic.core.codec2.CODEC2_SAMPLE_RATE_HZ
 
 private const val DRAIN_POLL_MS = 20L
 private const val DRAIN_SLACK_MS = 1_500L
+private val MIC_SOURCES = listOf(MediaRecorder.AudioSource.VOICE_RECOGNITION, MediaRecorder.AudioSource.MIC)
 
 private object AndroidVoiceAudio : VoiceAudio {
     override val available = true
@@ -51,21 +50,26 @@ private object AndroidVoiceAudio : VoiceAudio {
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
             )
+        // VOICE_RECOGNITION is the one source the Android CDD requires to be near-flat with noise reduction off by
+        // default: the phone's own call processing (VOICE_COMMUNICATION, NoiseSuppressor) leaves the warbly artifacts
+        // and low level that Codec2's pitch tracker turns into a robot voice. VoiceMicConditioner levels it instead.
         val record =
-            AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                CODEC2_SAMPLE_RATE_HZ,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                maxOf(minBytes, blockSamples * 2 * 4),
-            )
-        check(record.state == AudioRecord.STATE_INITIALIZED) { "Microphone unavailable" }
-        val effects =
-            listOfNotNull(
-                if (NoiseSuppressor.isAvailable()) NoiseSuppressor.create(record.audioSessionId) else null,
-                if (AutomaticGainControl.isAvailable()) AutomaticGainControl.create(record.audioSessionId) else null,
-            )
-        effects.forEach { it.enabled = true }
+            MIC_SOURCES.firstNotNullOfOrNull { source ->
+                val candidate =
+                    AudioRecord(
+                        source,
+                        CODEC2_SAMPLE_RATE_HZ,
+                        AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        maxOf(minBytes, blockSamples * 2 * 4),
+                    )
+                if (candidate.state == AudioRecord.STATE_INITIALIZED) {
+                    candidate
+                } else {
+                    candidate.release()
+                    null
+                }
+            } ?: error("Microphone unavailable")
         try {
             record.startRecording()
             while (currentCoroutineContext().isActive) {
@@ -80,7 +84,6 @@ private object AndroidVoiceAudio : VoiceAudio {
             }
         } finally {
             runCatching { record.stop() }
-            effects.forEach { it.release() }
             record.release()
         }
     }

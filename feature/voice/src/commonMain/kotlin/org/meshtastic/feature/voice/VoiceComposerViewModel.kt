@@ -108,11 +108,12 @@ class VoiceComposerViewModel(private val service: VoiceService, private val play
         job = viewModelScope.launch {
             try {
                 Codec2.open(codec.mode).use { c2 ->
+                    val conditioner = VoiceMicConditioner()
                     service.audioIo
                         .record(c2.samplesPerFrame * FRAMES_PER_BLOCK)
                         .takeWhile { nowMillis - started < maxMs }
                         .collect { pcm ->
-                            val encoded = c2.encode(pcm)
+                            val encoded = c2.encode(conditioner.process(pcm))
                             lock.withLock { noteFrames.write(encoded) }
                             stateFlow.value = ComposerVoiceState.RecordingNote(nowMillis - started, maxMs)
                         }
@@ -160,8 +161,9 @@ class VoiceComposerViewModel(private val service: VoiceService, private val play
         job = viewModelScope.launch {
             try {
                 Codec2.open(tx.codec.mode).use { c2 ->
+                    val conditioner = VoiceMicConditioner()
                     service.audioIo.record(c2.samplesPerFrame * tx.framesPerPacket).collect { pcm ->
-                        tx.send(c2.encode(pcm).toByteString())
+                        tx.send(c2.encode(conditioner.process(pcm)).toByteString())
                         stateFlow.value = ComposerVoiceState.Talking(route == LiveRoute.Mqtt, nowMillis - started)
                     }
                 }
