@@ -34,7 +34,12 @@ import kotlin.math.sqrt
  *
  * Stateful: use one instance per recording.
  */
-class VoiceMicConditioner(private val sampleRate: Int = CODEC2_SAMPLE_RATE_HZ) {
+class VoiceMicConditioner(
+    private val sampleRate: Int = CODEC2_SAMPLE_RATE_HZ,
+    private val suppressor: VoiceNoiseSuppressor? = VoiceNoiseSuppressor(),
+    private val level: Boolean = true,
+) {
+
     // Biquad high-pass (RBJ cookbook, Butterworth Q).
     private val b0: Double
     private val b1: Double
@@ -66,7 +71,9 @@ class VoiceMicConditioner(private val sampleRate: Int = CODEC2_SAMPLE_RATE_HZ) {
     }
 
     fun process(pcm: ShortArray): ShortArray {
-        val filtered = DoubleArray(pcm.size) { i -> highPass(pcm[i].toDouble()) }
+        val highPassed = DoubleArray(pcm.size) { i -> highPass(pcm[i].toDouble()) }
+        val filtered = suppressor?.process(highPassed) ?: highPassed
+        if (!level) return ShortArray(pcm.size) { softLimit(filtered[it]) }
         val out = ShortArray(pcm.size)
         var start = 0
         while (start < filtered.size) {
