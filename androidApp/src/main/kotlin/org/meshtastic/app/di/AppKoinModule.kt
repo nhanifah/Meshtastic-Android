@@ -58,6 +58,7 @@ import org.meshtastic.feature.messaging.di.FeatureMessagingModule
 import org.meshtastic.feature.node.di.FeatureNodeModule
 import org.meshtastic.feature.rangetest.di.FeatureRangeTestModule
 import org.meshtastic.feature.settings.di.FeatureSettingsModule
+import org.meshtastic.feature.voice.di.FeatureVoiceModule
 import org.meshtastic.feature.widget.di.FeatureWidgetModule
 import org.meshtastic.feature.wifiprovision.di.FeatureWifiProvisionModule
 
@@ -93,6 +94,7 @@ import org.meshtastic.feature.wifiprovision.di.FeatureWifiProvisionModule
         FeatureSettingsModule::class,
         FeatureDiscoveryModule::class,
         FeatureRangeTestModule::class,
+        FeatureVoiceModule::class,
         FeatureDocsModule::class,
         FeatureFirmwareModule::class,
         FeatureIntroModule::class,

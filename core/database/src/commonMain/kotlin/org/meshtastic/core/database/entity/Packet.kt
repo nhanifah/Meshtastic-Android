@@ -79,7 +79,13 @@ data class PacketEntity(
             receipts = data.receipts,
             translatedText = translatedText,
             showTranslated = showTranslated,
+            portNum = port_num,
+            payload = if (port_num == TEXT_MESSAGE_PORT) null else data.bytes,
         )
+    }
+
+    private companion object {
+        const val TEXT_MESSAGE_PORT = 1
     }
 }
 

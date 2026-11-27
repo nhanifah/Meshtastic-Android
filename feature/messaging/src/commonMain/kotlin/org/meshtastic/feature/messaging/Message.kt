@@ -111,6 +111,7 @@ import org.meshtastic.core.ui.icon.History
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.Send
 import org.meshtastic.core.ui.theme.AppTheme
+import org.meshtastic.core.ui.util.LocalVoiceUi
 import org.meshtastic.core.ui.util.createClipEntry
 import org.meshtastic.core.ui.util.isFromSoftKeyboard
 import org.meshtastic.feature.messaging.component.ActionModeTopBar
@@ -505,18 +506,25 @@ fun MessageScreen(
                         onClearReply = { replyingToPacketId = null },
                         ourNode = ourNode,
                     )
-                    MessageInput(
-                        isEnabled = connectionState is ConnectionState.Connected,
-                        isHomoglyphEncodingEnabled = homoglyphEncodingEnabled,
-                        textFieldState = messageInputState,
-                        mentionCandidates = mentionCandidates,
-                        onSendMessage = {
-                            val messageText = messageInputState.text.toString().trim { it.isWhitespace() }
-                            if (messageText.isNotEmpty()) {
-                                onEvent(MessageScreenEvent.SendMessage(messageText, replyingToPacketId))
-                            }
-                        },
-                    )
+                    val voiceUi = LocalVoiceUi.current
+                    voiceUi?.LiveBanner(contactKey = contactKey, modifier = Modifier.fillMaxWidth())
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Voice decides its own availability: over MQTT it works without a connected radio.
+                        voiceUi?.ComposerActions(contactKey = contactKey, enabled = true, modifier = Modifier)
+                        MessageInput(
+                            isEnabled = connectionState is ConnectionState.Connected,
+                            isHomoglyphEncodingEnabled = homoglyphEncodingEnabled,
+                            textFieldState = messageInputState,
+                            mentionCandidates = mentionCandidates,
+                            modifier = Modifier.weight(1f),
+                            onSendMessage = {
+                                val messageText = messageInputState.text.toString().trim { it.isWhitespace() }
+                                if (messageText.isNotEmpty()) {
+                                    onEvent(MessageScreenEvent.SendMessage(messageText, replyingToPacketId))
+                                }
+                            },
+                        )
+                    }
                 }
             }
         },

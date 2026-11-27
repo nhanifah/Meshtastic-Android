@@ -90,6 +90,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Camera permission for QR Code scanning -->
+    <!-- Voice notes and push-to-talk (feature:voice), asked for when the mic is first used. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
 
     <!-- NFC permission for sharing channels and contacts -->
@@ -100,6 +102,11 @@
 
     <uses-feature
         android:name="android.hardware.camera"
+        android:required="false" />
+
+    <!-- RECORD_AUDIO implies a required microphone; voice is optional, so devices without one still install. -->
+    <uses-feature
+        android:name="android.hardware.microphone"
         android:required="false" />
 
     <!-- The legacy BLUETOOTH permissions imply this feature as required, which hides the app on Android XR. -->

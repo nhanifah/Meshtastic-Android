@@ -263,6 +263,12 @@ sealed interface DiscoveryRoute : Route {
 }
 
 @Serializable
+sealed interface VoiceRoute : Route {
+    /** Codec, transports, gateway; the MQTT server itself comes from the radio's MQTT settings. */
+    @Serializable data object VoiceSettings : VoiceRoute
+}
+
+@Serializable
 sealed interface RangeTestRoute : Route {
     /** The hub: what is running now, a way into the setup wizard, and past tests. */
     @Serializable data object RangeTestHome : RangeTestRoute

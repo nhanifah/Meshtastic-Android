@@ -39,9 +39,11 @@ import org.meshtastic.core.resources.ic_keep
 import org.meshtastic.core.resources.ic_list
 import org.meshtastic.core.resources.ic_mark_chat_read
 import org.meshtastic.core.resources.ic_mark_chat_unread
+import org.meshtastic.core.resources.ic_mic
 import org.meshtastic.core.resources.ic_more_vert
 import org.meshtastic.core.resources.ic_offline_share
 import org.meshtastic.core.resources.ic_output
+import org.meshtastic.core.resources.ic_pause
 import org.meshtastic.core.resources.ic_play_arrow
 import org.meshtastic.core.resources.ic_power_settings_new
 import org.meshtastic.core.resources.ic_qr_code
@@ -58,6 +60,7 @@ import org.meshtastic.core.resources.ic_select_all
 import org.meshtastic.core.resources.ic_send
 import org.meshtastic.core.resources.ic_share
 import org.meshtastic.core.resources.ic_sort
+import org.meshtastic.core.resources.ic_stop
 import org.meshtastic.core.resources.ic_system_update
 import org.meshtastic.core.resources.ic_thumb_up
 import org.meshtastic.core.resources.ic_translate
@@ -130,6 +133,12 @@ val MeshtasticIcons.FileDownload: ImageVector
     @Composable get() = vectorResource(Res.drawable.ic_file_download)
 val MeshtasticIcons.PlayArrow: ImageVector
     @Composable get() = vectorResource(Res.drawable.ic_play_arrow)
+val MeshtasticIcons.Pause: ImageVector
+    @Composable get() = vectorResource(Res.drawable.ic_pause)
+val MeshtasticIcons.Stop: ImageVector
+    @Composable get() = vectorResource(Res.drawable.ic_stop)
+val MeshtasticIcons.Mic: ImageVector
+    @Composable get() = vectorResource(Res.drawable.ic_mic)
 val MeshtasticIcons.FilterAlt: ImageVector
     @Composable get() = vectorResource(Res.drawable.ic_filter_alt)
 val MeshtasticIcons.FilterAltOff: ImageVector

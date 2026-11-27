@@ -42,6 +42,7 @@ import org.meshtastic.feature.node.navigation.nodesGraph
 import org.meshtastic.feature.rangetest.navigation.rangeTestGraph
 import org.meshtastic.feature.settings.navigation.settingsGraph
 import org.meshtastic.feature.settings.radio.channel.channelsGraph
+import org.meshtastic.feature.voice.navigation.voiceGraph
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
@@ -67,6 +68,7 @@ class NavigationAssemblyTest {
                 connectionsGraph(backStack)
                 discoveryGraph(backStack)
                 rangeTestGraph(backStack)
+                voiceGraph(backStack)
                 settingsGraph(backStack) { _ -> error("Settings ViewModel is not composed in this assembly test") }
                 firmwareGraph(backStack)
             }

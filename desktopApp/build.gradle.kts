@@ -421,6 +421,7 @@ dependencies {
     implementation(projects.feature.coverage)
     implementation(projects.feature.discovery)
     implementation(projects.feature.rangetest)
+    implementation(projects.feature.voice)
     implementation(projects.feature.firmware)
     implementation(projects.feature.wifiProvision)
     implementation(projects.feature.intro)

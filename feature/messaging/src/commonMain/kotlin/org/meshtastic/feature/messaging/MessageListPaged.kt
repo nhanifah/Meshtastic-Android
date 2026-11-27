@@ -456,6 +456,7 @@ private fun RenderPagedChatMessageRow(
         remember(nodeMap) { { id -> id.removePrefix("!").toLongOrNull(HEX_RADIX)?.toInt()?.let { nodeMap[it] } } }
 
     MessageItem(
+        contactKey = state.contactKey,
         modifier = modifier,
         node = node,
         ourNode = ourNode,

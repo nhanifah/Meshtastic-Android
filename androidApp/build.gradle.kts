@@ -306,6 +306,7 @@ dependencies {
     implementation(projects.feature.settings)
     implementation(projects.feature.discovery)
     implementation(projects.feature.rangetest)
+    implementation(projects.feature.voice)
     implementation(projects.feature.docs)
     implementation(projects.feature.firmware)
     implementation(projects.feature.wifiProvision)

@@ -113,6 +113,7 @@ import org.meshtastic.core.ui.util.LocalRangeTestMapProvider
 import org.meshtastic.core.ui.util.LocalSitePlannerAvailable
 import org.meshtastic.core.ui.util.LocalTracerouteMapOverlayInsetsProvider
 import org.meshtastic.core.ui.util.LocalTracerouteMapProvider
+import org.meshtastic.core.ui.util.LocalVoiceUi
 import org.meshtastic.core.ui.util.TracerouteMapOverlayInsets
 import org.meshtastic.core.ui.util.rememberOpenUrl
 import org.meshtastic.core.ui.viewmodel.UIViewModel
@@ -137,6 +138,8 @@ import org.meshtastic.feature.map.maplibre.MapLibreRangeTestMap
 import org.meshtastic.feature.settings.appupdate.AppUpdateManager
 import org.meshtastic.feature.settings.appupdate.AppUpdateRelease
 import org.meshtastic.feature.settings.appupdate.AppUpdateState
+import org.meshtastic.feature.voice.ui.FeatureVoiceUi
+import org.meshtastic.feature.voice.ui.StartVoiceEngine
 import java.awt.Desktop
 import java.util.Locale
 import kotlin.system.exitProcess
@@ -509,6 +512,7 @@ private fun ApplicationScope.MeshtasticWindow(
                         MapLibreDiscoveryMap(userLatitude, userLongitude, nodes, modifier)
                     },
                 LocalRangeTestMapProvider provides { data, modifier -> MapLibreRangeTestMap(data, modifier) },
+                LocalVoiceUi provides FeatureVoiceUi,
                 LocalTracerouteMapProvider provides
                     { overlay, nodePositions, onMappableCountChanged, modifier ->
                         DesktopTracerouteMap(overlay, nodePositions, onMappableCountChanged, modifier)
@@ -517,6 +521,7 @@ private fun ApplicationScope.MeshtasticWindow(
                 LocalTracerouteMapOverlayInsetsProvider provides
                     TracerouteMapOverlayInsets(overlayPadding = PaddingValues(bottom = 48.dp)),
             ) {
+                StartVoiceEngine()
                 AppTheme(darkTheme = isDarkTheme) { DesktopMainScreen(uiViewModel, multiBackstack) }
             }
         }

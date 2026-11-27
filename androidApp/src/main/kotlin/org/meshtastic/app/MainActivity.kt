@@ -101,6 +101,7 @@ import org.meshtastic.core.ui.util.LocalRangeTestMapProvider
 import org.meshtastic.core.ui.util.LocalSitePlannerAvailable
 import org.meshtastic.core.ui.util.LocalTracerouteMapOverlayInsetsProvider
 import org.meshtastic.core.ui.util.LocalTracerouteMapProvider
+import org.meshtastic.core.ui.util.LocalVoiceUi
 import org.meshtastic.core.ui.util.accentColorOrNull
 import org.meshtastic.core.ui.util.brandHighlightOrNull
 import org.meshtastic.core.ui.util.brandPalette
@@ -113,6 +114,8 @@ import org.meshtastic.feature.map.MapScreen
 import org.meshtastic.feature.map.SharedMapViewModel
 import org.meshtastic.feature.map.layers.MapLayersManager
 import org.meshtastic.feature.map.layers.PickedMapFile
+import org.meshtastic.feature.voice.ui.FeatureVoiceUi
+import org.meshtastic.feature.voice.ui.StartVoiceEngine
 
 open class MainActivity : AppCompatActivity() {
     private val model: UIViewModel by viewModel()
@@ -290,6 +293,7 @@ open class MainActivity : AppCompatActivity() {
                 { userLat, userLon, nodes, modifier ->
                     org.meshtastic.app.map.discovery.DiscoveryMap(userLat, userLon, nodes, modifier)
                 },
+            LocalVoiceUi provides FeatureVoiceUi,
             LocalRangeTestMapProvider provides
                 { data, modifier ->
                     org.meshtastic.app.map.rangetest.RangeTestMap(data, modifier)
@@ -306,7 +310,10 @@ open class MainActivity : AppCompatActivity() {
                         onOpenMeshHud = onOpenMeshHud.takeIf { rememberMeshHudSupported() },
                     )
                 },
-            content = content,
+            content = {
+                StartVoiceEngine()
+                content()
+            },
         )
     }
 

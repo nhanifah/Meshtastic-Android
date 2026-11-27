@@ -147,3 +147,9 @@ expect val bleScanRequiresLocationServices: Boolean
  * that don't require a runtime camera permission.
  */
 @Composable expect fun rememberCameraPermissionState(): PermissionUiState
+
+/**
+ * Returns the reactive [PermissionUiState] for the microphone (RECORD_AUDIO), used by voice notes and push-to-talk.
+ * Always [PermissionStatus.GRANTED] on platforms without a runtime microphone permission.
+ */
+@Composable expect fun rememberMicrophonePermissionState(): PermissionUiState

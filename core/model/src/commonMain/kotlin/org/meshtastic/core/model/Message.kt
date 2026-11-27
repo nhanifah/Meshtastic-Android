@@ -16,6 +16,7 @@
  */
 package org.meshtastic.core.model
 
+import okio.ByteString
 import org.jetbrains.compose.resources.StringResource
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.error
@@ -319,6 +320,10 @@ data class Message(
     val translatedText: String? = null,
     /** Whether the bubble currently displays [translatedText] instead of [text]. */
     val showTranslated: Boolean = false,
+    /** The packet's port: TEXT_MESSAGE_APP (1) for text, AUDIO_APP (9) for a voice note. */
+    val portNum: Int = 1,
+    /** The raw payload for non-text messages (a voice note's stored clip); null for text. */
+    val payload: ByteString? = null,
 ) {
     /**
      * Epoch millis behind the displayed [time]: mesh time when the radio stamped one, otherwise the local

@@ -89,6 +89,8 @@ toolchainManagement {
 
 include(
     ":core:ble",
+    ":core:codec2",
+    ":core:codec2-jni",
     ":core:common",
     ":core:data",
     ":core:database",
@@ -119,6 +121,7 @@ include(
     ":feature:settings",
     ":feature:discovery",
     ":feature:rangetest",
+    ":feature:voice",
     ":feature:docs",
     ":feature:firmware",
     ":feature:wifi-provision",

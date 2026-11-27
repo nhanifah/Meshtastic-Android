@@ -41,6 +41,7 @@ import org.meshtastic.core.prefs.di.MeshDataStore
 import org.meshtastic.core.prefs.di.MeshLogDataStore
 import org.meshtastic.core.prefs.di.RadioDataStore
 import org.meshtastic.core.prefs.di.UiDataStore
+import org.meshtastic.core.prefs.di.VoiceDataStore
 import org.meshtastic.core.prefs.di.asAnalyticsDataStore
 import org.meshtastic.core.prefs.di.asAppDataStore
 import org.meshtastic.core.prefs.di.asCustomEmojiDataStore
@@ -53,6 +54,7 @@ import org.meshtastic.core.prefs.di.asMeshDataStore
 import org.meshtastic.core.prefs.di.asMeshLogDataStore
 import org.meshtastic.core.prefs.di.asRadioDataStore
 import org.meshtastic.core.prefs.di.asUiDataStore
+import org.meshtastic.core.prefs.di.asVoiceDataStore
 
 /** Typed preference-datastore singletons for each preference domain, one file each under the data directory. */
 @Suppress("TooManyFunctions")
@@ -66,6 +68,8 @@ class DesktopPreferencesDataStoreModule {
     @Single
     fun homoglyphEncodingDataStore(scope: DataStoreScope): HomoglyphEncodingDataStore =
         prefsStore("homoglyph_encoding", scope).asHomoglyphEncodingDataStore()
+
+    @Single fun voiceDataStore(scope: DataStoreScope): VoiceDataStore = prefsStore("voice", scope).asVoiceDataStore()
 
     @Single fun appDataStore(scope: DataStoreScope): AppDataStore = prefsStore("app", scope).asAppDataStore()
 

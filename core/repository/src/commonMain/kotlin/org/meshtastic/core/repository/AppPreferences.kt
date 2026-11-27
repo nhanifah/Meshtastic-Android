@@ -31,6 +31,47 @@ interface AnalyticsPrefs {
     val installId: StateFlow<String>
 }
 
+/**
+ * Voice-note and push-to-talk settings. There is deliberately no MQTT server here: voice uses the radio's own MQTT
+ * settings (Settings → MQTT), so the user enters one server once.
+ */
+interface VoicePrefs {
+    /** The Codec2 mode used for recording, as the voice protocol's codec wire id (3 = 1300 bps). */
+    val codecWireId: StateFlow<Int>
+
+    /** Longest voice note, in seconds. */
+    val maxNoteSeconds: StateFlow<Int>
+
+    /** How notes travel: AUTO, MQTT_ONLY, LORA_ONLY or BOTH. */
+    val noteTransport: StateFlow<String>
+
+    /** Let other radios relay voice over LoRa (off = direct neighbours only). */
+    val loraRelay: StateFlow<Boolean>
+
+    /** Re-send voice notes heard over MQTT onto the local mesh. */
+    val gatewayEnabled: StateFlow<Boolean>
+
+    /** Play incoming push-to-talk as it arrives. */
+    val autoplayLive: StateFlow<Boolean>
+
+    /** Our node number from the last radio connection, so MQTT voice still works while the radio is away. */
+    val lastNodeNum: StateFlow<Int>
+
+    fun setCodecWireId(value: Int)
+
+    fun setMaxNoteSeconds(value: Int)
+
+    fun setNoteTransport(value: String)
+
+    fun setLoraRelay(value: Boolean)
+
+    fun setGatewayEnabled(value: Boolean)
+
+    fun setAutoplayLive(value: Boolean)
+
+    fun setLastNodeNum(value: Int)
+}
+
 /** Reactive interface for homoglyph encoding preferences. */
 interface HomoglyphPrefs {
     val homoglyphEncodingEnabled: StateFlow<Boolean>

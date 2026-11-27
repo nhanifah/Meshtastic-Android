@@ -462,6 +462,10 @@ actual fun rememberLocalNetworkPermissionState(): PermissionUiState {
 actual fun rememberCameraPermissionState(): PermissionUiState =
     rememberRuntimePermissionState(permissions = arrayOf(android.Manifest.permission.CAMERA), requireAll = true)
 
+@Composable
+actual fun rememberMicrophonePermissionState(): PermissionUiState =
+    rememberRuntimePermissionState(permissions = arrayOf(android.Manifest.permission.RECORD_AUDIO), requireAll = true)
+
 /** A constant [PermissionUiState] for API levels where the permission is not gated at runtime. */
 @Composable private fun rememberGrantedPermissionState(): PermissionUiState = remember { grantedPermissionUiState() }
 

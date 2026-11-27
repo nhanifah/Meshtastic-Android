@@ -39,6 +39,7 @@ import org.meshtastic.core.navigation.DiscoveryRoute
 import org.meshtastic.core.navigation.FirmwareRoute
 import org.meshtastic.core.navigation.Route
 import org.meshtastic.core.navigation.SettingsRoute
+import org.meshtastic.core.navigation.VoiceRoute
 import org.meshtastic.core.navigation.WifiProvisionRoute
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.about
@@ -58,6 +59,8 @@ import org.meshtastic.core.resources.theme
 import org.meshtastic.core.resources.tracker_summary
 import org.meshtastic.core.resources.tracker_title
 import org.meshtastic.core.resources.units
+import org.meshtastic.core.resources.voice_settings
+import org.meshtastic.core.resources.voice_settings_summary
 import org.meshtastic.core.resources.wifi_devices
 import org.meshtastic.core.resources.zh_CN
 import org.meshtastic.core.resources.zh_TW
@@ -72,6 +75,7 @@ import org.meshtastic.core.ui.icon.Info
 import org.meshtastic.core.ui.icon.Language
 import org.meshtastic.core.ui.icon.List
 import org.meshtastic.core.ui.icon.MeshtasticIcons
+import org.meshtastic.core.ui.icon.Mic
 import org.meshtastic.core.ui.icon.PermScanWifi
 import org.meshtastic.core.ui.icon.Route
 import org.meshtastic.core.ui.icon.Wifi
@@ -218,6 +222,14 @@ fun DesktopSettingsScreen(
                         trailingIcon = null,
                     ) {
                         showUnitsPickerDialog = true
+                    }
+
+                    ListItem(
+                        text = stringResource(Res.string.voice_settings),
+                        supportingText = stringResource(Res.string.voice_settings_summary),
+                        leadingIcon = MeshtasticIcons.Mic,
+                    ) {
+                        onNavigate(VoiceRoute.VoiceSettings)
                     }
 
                     FullMessageTimestampsSetting(

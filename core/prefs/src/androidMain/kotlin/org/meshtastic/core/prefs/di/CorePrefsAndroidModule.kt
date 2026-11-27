@@ -59,6 +59,11 @@ class CorePrefsAndroidModule {
         .asHomoglyphEncodingDataStore()
 
     @Single
+    fun provideVoiceDataStore(context: Context, dispatchers: CoroutineDispatchers): VoiceDataStore =
+        createPreferencesDataStore(context, dispatchers, legacyName = "voice-prefs", fileName = "voice_ds")
+            .asVoiceDataStore()
+
+    @Single
     fun provideAppDataStore(context: Context, dispatchers: CoroutineDispatchers): AppDataStore =
         createPreferencesDataStore(context, dispatchers, legacyName = "prefs", fileName = "app_ds").asAppDataStore()
 

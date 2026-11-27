@@ -53,6 +53,12 @@ interface HomoglyphEncodingDataStore : DataStore<Preferences>
 fun DataStore<Preferences>.asHomoglyphEncodingDataStore(): HomoglyphEncodingDataStore =
     object : HomoglyphEncodingDataStore, DataStore<Preferences> by this {}
 
+interface VoiceDataStore : DataStore<Preferences>
+
+/** Presents an existing store as [VoiceDataStore]; the wrapper adds nothing but identity. */
+fun DataStore<Preferences>.asVoiceDataStore(): VoiceDataStore =
+    object : VoiceDataStore, DataStore<Preferences> by this {}
+
 interface MapConsentDataStore : DataStore<Preferences>
 
 /** Presents an existing store as [MapConsentDataStore]; the wrapper adds nothing but identity. */

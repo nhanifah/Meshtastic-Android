@@ -52,6 +52,7 @@ import org.meshtastic.core.model.effectiveLongName
 import org.meshtastic.core.navigation.FirmwareRoute
 import org.meshtastic.core.navigation.Route
 import org.meshtastic.core.navigation.SettingsRoute
+import org.meshtastic.core.navigation.VoiceRoute
 import org.meshtastic.core.navigation.WifiProvisionRoute
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.app_functions_settings
@@ -69,6 +70,8 @@ import org.meshtastic.core.resources.node_layout_section_title
 import org.meshtastic.core.resources.preferences_language
 import org.meshtastic.core.resources.tracker_summary
 import org.meshtastic.core.resources.tracker_title
+import org.meshtastic.core.resources.voice_settings
+import org.meshtastic.core.resources.voice_settings_summary
 import org.meshtastic.core.resources.wifi_devices
 import org.meshtastic.core.ui.component.ListItem
 import org.meshtastic.core.ui.component.MeshtasticDialog
@@ -77,6 +80,7 @@ import org.meshtastic.core.ui.icon.FilterList
 import org.meshtastic.core.ui.icon.HelpOutline
 import org.meshtastic.core.ui.icon.List
 import org.meshtastic.core.ui.icon.MeshtasticIcons
+import org.meshtastic.core.ui.icon.Mic
 import org.meshtastic.core.ui.icon.PhoneAndroid
 import org.meshtastic.core.ui.icon.Route
 import org.meshtastic.core.ui.icon.SettingsRemote
@@ -331,6 +335,13 @@ fun SettingsScreen(
                         ListItem(text = stringResource(Res.string.wifi_devices), leadingIcon = MeshtasticIcons.Wifi) {
                             onNavigate(WifiProvisionRoute.WifiProvision())
                         }
+                    }
+                    ListItem(
+                        text = stringResource(Res.string.voice_settings),
+                        supportingText = stringResource(Res.string.voice_settings_summary),
+                        leadingIcon = MeshtasticIcons.Mic,
+                    ) {
+                        onNavigate(VoiceRoute.VoiceSettings)
                     }
                     ListItem(
                         text = stringResource(Res.string.filter_settings),

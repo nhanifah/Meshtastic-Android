@@ -108,6 +108,8 @@ import org.meshtastic.core.ui.icon.Reply
 import org.meshtastic.core.ui.icon.ShieldCheck
 import org.meshtastic.core.ui.theme.MessageItemColors
 import org.meshtastic.core.ui.theme.StatusColors.StatusGreen
+import org.meshtastic.core.ui.util.LocalVoiceUi
+import org.meshtastic.core.ui.util.VOICE_NOTE_PORT_NUM
 import org.meshtastic.core.ui.util.createClipEntry
 
 internal const val MESSAGE_STATUS_LABEL_TEST_TAG = "message_status_label"
@@ -166,6 +168,8 @@ fun MessageItem(
     isDirectMessage: Boolean = false,
     onTranslate: () -> Unit = {},
     onToggleTranslation: () -> Unit = {},
+    /** The conversation this bubble is in; voice notes need it to play and forward. */
+    contactKey: String = "",
 ) = Column(
     modifier =
     modifier
@@ -455,7 +459,17 @@ fun MessageItem(
                 )
 
                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    if (searchQuery.isNotEmpty()) {
+                    val voiceUi = LocalVoiceUi.current
+                    val voicePayload = message.payload
+                    if (message.portNum == VOICE_NOTE_PORT_NUM && voicePayload != null && voiceUi != null) {
+                        voiceUi.NoteBody(
+                            payload = voicePayload,
+                            fromLocal = message.fromLocal,
+                            contactKey = contactKey,
+                            contentColor = contentColor,
+                            modifier = Modifier,
+                        )
+                    } else if (searchQuery.isNotEmpty()) {
                         HighlightedText(
                             text = message.text,
                             query = searchQuery,
