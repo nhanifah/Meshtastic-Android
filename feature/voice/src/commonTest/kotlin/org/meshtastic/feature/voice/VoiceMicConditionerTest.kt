@@ -87,4 +87,41 @@ class VoiceMicConditionerTest {
         val out = settle(c, 1) { tone(300.0, 32_000, 320, it) }
         assertTrue(out.peak() <= 32_767 && out.peak() > 8_000, "peak ${out.peak()}")
     }
+
+    /** Fan-like room noise that flutters block to block (deterministic, so the test is stable). */
+    private fun roomNoise(samples: Int, seed: Int): ShortArray {
+        var state = seed * 1_103_515_245 + 12_345
+        return ShortArray(samples) { i ->
+            state = state * 1_103_515_245 + 12_345
+            val flutter = if ((i / 80) % 3 == 0) 2.0 else 1.0
+            ((state shr 16) % 300 * flutter).toInt().toShort()
+        }
+    }
+
+    private fun ShortArray.rms() = sqrt(sumOf { it.toDouble() * it } / size)
+
+    @Test
+    fun flutteringRoomNoiseIsNotBoosted() {
+        val c = VoiceMicConditioner()
+        var inRms = 0.0
+        var outRms = 0.0
+        repeat(100) { block ->
+            val input = roomNoise(320, block)
+            val out = c.process(input)
+            if (block >= 50) {
+                inRms += input.rms()
+                outRms += out.rms()
+            }
+        }
+        assertTrue(outRms <= inRms, "room noise went from $inRms to $outRms")
+    }
+
+    @Test
+    fun aWordAfterSilenceDoesNotBurst() {
+        val c = VoiceMicConditioner()
+        settle(c, 2) { tone(300.0, 400, 320, it) } // quiet speech winds the gain up
+        settle(c, 1) { ShortArray(320) } // a pause
+        val onset = c.process(tone(300.0, 20_000, 320)) // then a loud syllable
+        assertTrue(onset.peak() <= 26_000, "onset peak ${onset.peak()}")
+    }
 }
