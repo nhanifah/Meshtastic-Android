@@ -2453,6 +2453,7 @@
     <string name="voice_forward_lora">Send over LoRa</string>
     <string name="voice_gateway">Forward MQTT voice notes to LoRa</string>
     <string name="voice_gateway_summary">Re-sends channel voice notes heard over MQTT onto the local mesh, once each</string>
+    <string name="voice_hold_to_record">Hold to record, release to send</string>
     <string name="voice_lora_estimate">About %1$d s of LoRa airtime</string>
     <string name="voice_lora_relay">Let other radios relay voice</string>
     <string name="voice_lora_relay_summary">Off sends voice to direct neighbours only and saves airtime</string>
@@ -2484,6 +2485,8 @@
     <string name="voice_send_note">Send voice note</string>
     <string name="voice_settings">Voice</string>
     <string name="voice_settings_summary">Voice notes and push-to-talk over MQTT or LoRa</string>
+    <string name="voice_slide_to_cancel">Slide to cancel</string>
+    <string name="voice_slide_up_to_lock">Slide up to lock</string>
     <string name="voice_someone_talking">%1$s is talking</string>
     <string name="voice_talking_live">Talking live</string>
     <string name="voice_transport">Send voice notes over</string>

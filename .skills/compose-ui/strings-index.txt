@@ -2378,6 +2378,7 @@ voice_codec_summary
 voice_forward_lora
 voice_gateway
 voice_gateway_summary
+voice_hold_to_record
 voice_lora_estimate
 voice_lora_relay
 voice_lora_relay_summary
@@ -2409,6 +2410,8 @@ voice_seconds
 voice_send_note
 voice_settings
 voice_settings_summary
+voice_slide_to_cancel
+voice_slide_up_to_lock
 voice_someone_talking
 voice_talking_live
 voice_transport

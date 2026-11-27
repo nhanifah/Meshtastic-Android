@@ -34,8 +34,17 @@ interface VoiceUi {
     @Composable
     fun NoteBody(payload: ByteString, fromLocal: Boolean, contactKey: String, contentColor: Color, modifier: Modifier)
 
-    /** Record-a-note and push-to-talk buttons beside the message field; [enabled] follows the send button. */
-    @Composable fun ComposerActions(contactKey: String, enabled: Boolean, modifier: Modifier)
+    /** The small hold-to-talk (live push-to-talk) button at the start of the message field. */
+    @Composable fun PushToTalkButton(contactKey: String, modifier: Modifier)
+
+    /**
+     * The round button at the end of the composer while the field is empty: hold to record a voice note, release to
+     * send, slide left to cancel, slide up to lock hands-free.
+     */
+    @Composable fun RecordButton(contactKey: String, modifier: Modifier)
+
+    /** Drawn over the message field while a note is being recorded (timer, slide-to-cancel); nothing otherwise. */
+    @Composable fun RecordingBar(contactKey: String, modifier: Modifier)
 
     /** "X is talking" while a live push-to-talk burst for [contactKey] is playing; draws nothing otherwise. */
     @Composable fun LiveBanner(contactKey: String, modifier: Modifier)

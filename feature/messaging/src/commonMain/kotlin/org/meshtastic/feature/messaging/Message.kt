@@ -31,7 +31,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.OutputTransformation
@@ -40,8 +42,8 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -134,6 +136,9 @@ private const val FORMATTING_TOOLBAR_MIN_CHARS = 3
 
 // Byte counter appears only once the draft is within this much of the limit.
 private const val COUNTER_VISIBLE_WITHIN_BYTES = 20
+
+/** The round send / record button: as tall as a single-line field, so the two line up. */
+private val SEND_BUTTON_SIZE = 56.dp
 
 /**
  * The main screen for displaying and sending messages to a contact or channel.
@@ -508,29 +513,22 @@ fun MessageScreen(
                     )
                     val voiceUi = LocalVoiceUi.current
                     voiceUi?.LiveBanner(contactKey = contactKey, modifier = Modifier.fillMaxWidth())
-                    // Top-aligned: the field keeps an empty counter line under it, so centring would put the
-                    // voice buttons below the field. 8 dp = 4 dp field padding + (56 dp field - 48 dp button) / 2.
-                    Row(verticalAlignment = Alignment.Top) {
-                        // Voice decides its own availability: over MQTT it works without a connected radio.
-                        voiceUi?.ComposerActions(
-                            contactKey = contactKey,
-                            enabled = true,
-                            modifier = Modifier.padding(start = 4.dp, top = 8.dp),
-                        )
-                        MessageInput(
-                            isEnabled = connectionState is ConnectionState.Connected,
-                            isHomoglyphEncodingEnabled = homoglyphEncodingEnabled,
-                            textFieldState = messageInputState,
-                            mentionCandidates = mentionCandidates,
-                            modifier = Modifier.weight(1f),
-                            onSendMessage = {
-                                val messageText = messageInputState.text.toString().trim { it.isWhitespace() }
-                                if (messageText.isNotEmpty()) {
-                                    onEvent(MessageScreenEvent.SendMessage(messageText, replyingToPacketId))
-                                }
-                            },
-                        )
-                    }
+                    // Voice decides its own availability: over MQTT it works without a connected radio.
+                    MessageInput(
+                        isEnabled = connectionState is ConnectionState.Connected,
+                        isHomoglyphEncodingEnabled = homoglyphEncodingEnabled,
+                        textFieldState = messageInputState,
+                        mentionCandidates = mentionCandidates,
+                        leadingAction = voiceUi?.let { ui -> { ui.PushToTalkButton(contactKey, Modifier) } },
+                        idleAction = voiceUi?.let { ui -> { m -> ui.RecordButton(contactKey, m) } },
+                        fieldOverlay = voiceUi?.let { ui -> { m -> ui.RecordingBar(contactKey, m) } },
+                        onSendMessage = {
+                            val messageText = messageInputState.text.toString().trim { it.isWhitespace() }
+                            if (messageText.isNotEmpty()) {
+                                onEvent(MessageScreenEvent.SendMessage(messageText, replyingToPacketId))
+                            }
+                        },
+                    )
                 }
             }
         },
@@ -836,6 +834,10 @@ internal fun RetiredChannelNotice(modifier: Modifier = Modifier) {
  *   fed to the field's [OutputTransformation] through a state holder, never by replacing the transformation.
  * @param modifier The modifier for this composable.
  * @param maxByteSize The maximum allowed size of the message in bytes.
+ * @param leadingAction Shown at the start of the field (live push-to-talk).
+ * @param idleAction Replaces the round send button while the field is empty (hold-to-record voice note), WhatsApp
+ *   style; null keeps the send button.
+ * @param fieldOverlay Drawn over the field, sized to it (the voice recording bar); it draws nothing when idle.
  * @param onSendMessage Callback invoked when the send button is pressed or send IME action is triggered.
  */
 @Suppress("LongMethod", "CyclomaticComplexMethod") // Due to multiple parts of the OutlinedTextField
@@ -847,6 +849,9 @@ internal fun MessageInput(
     mentionCandidates: ImmutableMap<String, MentionCandidate>,
     modifier: Modifier = Modifier,
     maxByteSize: Int = MESSAGE_CHARACTER_LIMIT_BYTES,
+    leadingAction: (@Composable () -> Unit)? = null,
+    idleAction: (@Composable (Modifier) -> Unit)? = null,
+    fieldOverlay: (@Composable (Modifier) -> Unit)? = null,
     onSendMessage: () -> Unit,
 ) {
     val currentTextRaw = textFieldState.text.toString()
@@ -905,76 +910,86 @@ internal fun MessageInput(
         if (mentionActive) {
             MentionSuggestions(suggestions = suggestions, onPick = ::insertMention)
         }
-        OutlinedTextField(
-            modifier =
-            Modifier.fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .onFocusChanged { isFocused = it.isFocused }
-                // Tunnel phase, not bubble: a multi-line field consumes Enter to insert its newline, so an
-                // Enter-to-send shortcut has to claim the event before the field ever sees it.
-                .onPreviewKeyEvent { keyEvent ->
-                    // Enter-to-send is a physical-keyboard shortcut, reached past with Shift. An on-screen keyboard
-                    // has no Shift, so its Enter is left alone to insert the newline it is labelled with.
-                    val isEnterNoShift =
-                        keyEvent.key == Key.Enter && !keyEvent.isShiftPressed && !keyEvent.isFromSoftKeyboard()
-                    if (isEnterNoShift) {
-                        if (keyEvent.type == KeyEventType.KeyUp) onSendAction()
-                        true // consume both KeyDown and KeyUp to prevent newline insertion
-                    } else {
-                        false
-                    }
-                },
-            state = textFieldState,
-            outputTransformation = mentionOutput,
-            lineLimits = TextFieldLineLimits.MultiLine(1, MAX_LINES),
-            enabled = isEnabled,
-            shape = RoundedCornerShape(ROUNDED_CORNER_PERCENT.toFloat()),
-            isError = isOverLimit,
-            placeholder = { Text(stringResource(Res.string.type_a_message)) },
-            // A multi-line field must keep its Enter key: Compose only sets IME_FLAG_NO_ENTER_ACTION for
-            // ImeAction.Default, and without it an IME may swap Enter for the action, leaving no way to type a newline.
-            keyboardOptions =
-            KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Default),
-            supportingText = {
-                // The counter is only useful as the limit approaches. Showing 0/200 before a character is typed is
-                // chrome that every chat client has learned to hide.
-                if (isEnabled && currentByteLength >= maxByteSize - COUNTER_VISIBLE_WITHIN_BYTES) {
-                    Text(
-                        text = "$currentByteLength/$maxByteSize",
-                        style = MaterialTheme.typography.bodySmall,
-                        color =
-                        if (isOverLimit) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedTextField(
+                    modifier =
+                    Modifier.fillMaxWidth()
+                        .onFocusChanged { isFocused = it.isFocused }
+                        // Tunnel phase, not bubble: a multi-line field consumes Enter to insert its newline, so an
+                        // Enter-to-send shortcut has to claim the event before the field ever sees it.
+                        .onPreviewKeyEvent { keyEvent ->
+                            // Enter-to-send is a physical-keyboard shortcut, reached past with Shift. An on-screen
+                            // keyboard
+                            // has no Shift, so its Enter is left alone to insert the newline it is labelled with.
+                            val isEnterNoShift =
+                                keyEvent.key == Key.Enter &&
+                                    !keyEvent.isShiftPressed &&
+                                    !keyEvent.isFromSoftKeyboard()
+                            if (isEnterNoShift) {
+                                if (keyEvent.type == KeyEventType.KeyUp) onSendAction()
+                                true // consume both KeyDown and KeyUp to prevent newline insertion
+                            } else {
+                                false
+                            }
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.End,
-                    )
-                }
-            },
-            // Direct byte limiting via inputTransformation in TextFieldState is complex.
-            // The current approach (show error, disable send) is generally preferred for UX.
-            // If strict real-time byte trimming is required, it needs careful handling of
-            // cursor position and multi-byte characters, likely outside simple inputTransformation.
-            trailingIcon = {
-                // Colour, not just enablement, carries "this will send" — a greyed-out icon reads as broken rather
+                    state = textFieldState,
+                    outputTransformation = mentionOutput,
+                    lineLimits = TextFieldLineLimits.MultiLine(1, MAX_LINES),
+                    enabled = isEnabled,
+                    shape = RoundedCornerShape(ROUNDED_CORNER_PERCENT.toFloat()),
+                    isError = isOverLimit,
+                    placeholder = { Text(stringResource(Res.string.type_a_message)) },
+                    // A multi-line field must keep its Enter key: Compose only sets IME_FLAG_NO_ENTER_ACTION for
+                    // ImeAction.Default, and without it an IME may swap Enter for the action, leaving no way to type a
+                    // newline.
+                    keyboardOptions =
+                    KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Default,
+                    ),
+                    // Direct byte limiting via inputTransformation in TextFieldState is complex.
+                    // The current approach (show error, disable send) is generally preferred for UX.
+                    // If strict real-time byte trimming is required, it needs careful handling of
+                    // cursor position and multi-byte characters, likely outside simple inputTransformation.
+                    leadingIcon = leadingAction,
+                )
+                fieldOverlay?.invoke(Modifier.matchParentSize())
+            }
+            Spacer(Modifier.width(6.dp))
+            // WhatsApp-style round button: the voice-note mic while there is nothing to send, send otherwise.
+            val showIdle = idleAction != null && currentTextRaw.isEmpty() && !mentionActive
+            if (showIdle) {
+                idleAction(Modifier.size(SEND_BUTTON_SIZE))
+            } else {
+                // Colour, not just enablement, carries "this will send" — a greyed-out button reads as broken rather
                 // than as waiting for input.
                 val sendEnabled = isEnabled && (canSend || mentionActive)
-                IconButton(onClick = onSendAction, enabled = sendEnabled) {
-                    Icon(
-                        imageVector = MeshtasticIcons.Send,
-                        contentDescription = stringResource(Res.string.send),
-                        tint =
-                        if (sendEnabled) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
+                FilledIconButton(
+                    onClick = onSendAction,
+                    enabled = sendEnabled,
+                    modifier = Modifier.size(SEND_BUTTON_SIZE),
+                    shape = CircleShape,
+                ) {
+                    Icon(imageVector = MeshtasticIcons.Send, contentDescription = stringResource(Res.string.send))
                 }
-            },
-        )
+            }
+        }
+        // The counter is only useful as the limit approaches. Showing 0/200 before a character is typed is chrome
+        // that every chat client has learned to hide.
+        if (isEnabled && currentByteLength >= maxByteSize - COUNTER_VISIBLE_WITHIN_BYTES) {
+            Text(
+                text = "$currentByteLength/$maxByteSize",
+                style = MaterialTheme.typography.bodySmall,
+                color =
+                if (isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(end = SEND_BUTTON_SIZE + 22.dp),
+                textAlign = TextAlign.End,
+            )
+        }
         // Markdown formatting toolbar — shown once the field is focused and holds enough text to format (iOS parity).
         if (isEnabled && isFocused && currentText.length >= FORMATTING_TOOLBAR_MIN_CHARS) {
             FormattingToolbar(state = textFieldState, modifier = Modifier.padding(horizontal = 8.dp))

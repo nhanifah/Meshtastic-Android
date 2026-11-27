@@ -37,8 +37,13 @@ object FeatureVoiceUi : VoiceUi {
     ) = VoiceNoteBody(payload, fromLocal, contactKey, contentColor, modifier)
 
     @Composable
-    override fun ComposerActions(contactKey: String, enabled: Boolean, modifier: Modifier) =
-        VoiceComposerActions(contactKey, enabled, modifier)
+    override fun PushToTalkButton(contactKey: String, modifier: Modifier) = VoicePushToTalkButton(contactKey, modifier)
+
+    @Composable
+    override fun RecordButton(contactKey: String, modifier: Modifier) = VoiceRecordButton(contactKey, modifier)
+
+    @Composable
+    override fun RecordingBar(contactKey: String, modifier: Modifier) = VoiceRecordingBar(contactKey, modifier)
 
     @Composable override fun LiveBanner(contactKey: String, modifier: Modifier) = VoiceLiveBanner(contactKey, modifier)
 }

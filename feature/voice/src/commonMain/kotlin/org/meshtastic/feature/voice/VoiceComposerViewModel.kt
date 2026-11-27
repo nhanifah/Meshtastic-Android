@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.takeWhile
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -47,12 +48,16 @@ enum class VoiceNotice {
     LIVE_NO_LINK,
     LIVE_LORA_TOO_SLOW,
     LIVE_LORA_BUSY,
+
+    /** The mic button was tapped instead of held. */
+    HOLD_TO_RECORD,
 }
 
 sealed interface ComposerVoiceState {
     data object Idle : ComposerVoiceState
 
-    data class RecordingNote(val elapsedMs: Long, val maxMs: Long) : ComposerVoiceState
+    /** [locked]: the user slid up, so the note keeps recording without a finger on the button. */
+    data class RecordingNote(val elapsedMs: Long, val maxMs: Long, val locked: Boolean = false) : ComposerVoiceState
 
     data class Talking(val viaMqtt: Boolean, val elapsedMs: Long) : ComposerVoiceState
 }
@@ -65,6 +70,11 @@ class VoiceComposerViewModel(private val service: VoiceService, private val play
 
     private val stateFlow = MutableStateFlow<ComposerVoiceState>(ComposerVoiceState.Idle)
     val state: StateFlow<ComposerVoiceState> = stateFlow.asStateFlow()
+
+    private val slideFlow = MutableStateFlow(0f)
+
+    /** How far toward "cancel" the finger has slid while holding the record button, 0 (none) to 1 (cancels). */
+    val slideToCancel: StateFlow<Float> = slideFlow.asStateFlow()
 
     private val noticeFlow = MutableStateFlow<VoiceNotice?>(null)
     val notice: StateFlow<VoiceNotice?> = noticeFlow.asStateFlow()
@@ -86,6 +96,21 @@ class VoiceComposerViewModel(private val service: VoiceService, private val play
 
     fun clearNotice() {
         noticeFlow.value = null
+    }
+
+    fun showNotice(notice: VoiceNotice) {
+        noticeFlow.value = notice
+    }
+
+    fun setSlide(progress: Float) {
+        slideFlow.value = progress.coerceIn(0f, 1f)
+    }
+
+    /** Keeps the note recording after the finger lifts; it then ends with the send or discard buttons. */
+    fun lockNote() {
+        val s = stateFlow.value as? ComposerVoiceState.RecordingNote ?: return
+        stateFlow.value = s.copy(locked = true)
+        slideFlow.value = 0f
     }
 
     fun togglePlay(stored: ByteString) = player.toggle(stored)
@@ -115,7 +140,14 @@ class VoiceComposerViewModel(private val service: VoiceService, private val play
                         .collect { pcm ->
                             val encoded = c2.encode(conditioner.process(pcm))
                             lock.withLock { noteFrames.write(encoded) }
-                            stateFlow.value = ComposerVoiceState.RecordingNote(nowMillis - started, maxMs)
+                            // Only tick a recording that is still on: finishNote may already have moved to Idle.
+                            stateFlow.update {
+                                if (it is ComposerVoiceState.RecordingNote) {
+                                    it.copy(elapsedMs = nowMillis - started)
+                                } else {
+                                    it
+                                }
+                            }
                         }
                 }
                 // Reached the length limit: send what was recorded.
@@ -135,6 +167,7 @@ class VoiceComposerViewModel(private val service: VoiceService, private val play
         val recording = job
         job = null
         stateFlow.value = ComposerVoiceState.Idle
+        slideFlow.value = 0f
         viewModelScope.launch {
             recording?.cancel()
             recording?.join()
@@ -164,7 +197,9 @@ class VoiceComposerViewModel(private val service: VoiceService, private val play
                     val conditioner = VoiceMicConditioner()
                     service.audioIo.record(c2.samplesPerFrame * tx.framesPerPacket).collect { pcm ->
                         tx.send(c2.encode(conditioner.process(pcm)).toByteString())
-                        stateFlow.value = ComposerVoiceState.Talking(route == LiveRoute.Mqtt, nowMillis - started)
+                        stateFlow.update {
+                            if (it is ComposerVoiceState.Talking) it.copy(elapsedMs = nowMillis - started) else it
+                        }
                     }
                 }
             } catch (e: CancellationException) {
