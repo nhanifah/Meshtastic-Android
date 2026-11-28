@@ -134,6 +134,7 @@ import org.meshtastic.core.resources.you
 import org.meshtastic.proto.ClientNotification
 import org.meshtastic.proto.DeviceMetrics
 import org.meshtastic.proto.LocalStats
+import org.meshtastic.proto.PortNum
 import org.meshtastic.proto.Telemetry
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
@@ -1184,7 +1185,10 @@ class MeshNotificationManagerImpl(
 
             val text =
                 msg.originalMessage?.let { original ->
-                    "↩️ \"${original.node.user.short_name}: ${snippet(original.text)}\": ${msg.text}"
+                    // A voice note has no text to quote; the microphone says what was replied to.
+                    val quoted =
+                        if (original.portNum == PortNum.AUDIO_APP.value) "\uD83C\uDFA4" else snippet(original.text)
+                    "↩️ \"${original.node.user.short_name}: $quoted\": ${msg.text}"
                 } ?: msg.text
 
             if (msg.read && (anyUnread || index != lastIndex)) {

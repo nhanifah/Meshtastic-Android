@@ -236,7 +236,7 @@ fun ReplySnippet(originalMessage: Message?, onClearReply: () -> Unit, ourNode: N
                 )
                 Text(
                     modifier = Modifier.weight(1f).semantics { isSensitiveData = true },
-                    text = message.text.ellipsize(SNIPPET_CHARACTER_LIMIT),
+                    text = message.quotedText().ellipsize(SNIPPET_CHARACTER_LIMIT),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

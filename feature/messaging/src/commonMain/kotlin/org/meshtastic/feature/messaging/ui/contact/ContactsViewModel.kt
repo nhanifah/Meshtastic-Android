@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import org.jetbrains.compose.resources.getString
 import org.koin.core.annotation.KoinViewModel
 import org.meshtastic.core.common.util.ioDispatcher
 import org.meshtastic.core.model.Contact
@@ -38,10 +39,13 @@ import org.meshtastic.core.repository.ConnectionStateProvider
 import org.meshtastic.core.repository.NodeRepository
 import org.meshtastic.core.repository.PacketRepository
 import org.meshtastic.core.repository.RadioConfigRepository
+import org.meshtastic.core.resources.Res
+import org.meshtastic.core.resources.voice_note
 import org.meshtastic.core.ui.util.SnackbarManager
 import org.meshtastic.core.ui.viewmodel.safeLaunch
 import org.meshtastic.core.ui.viewmodel.stateInWhileSubscribed
 import org.meshtastic.proto.ChannelSet
+import org.meshtastic.proto.PortNum
 import kotlin.collections.map as collectionsMap
 
 @KoinViewModel
@@ -109,6 +113,7 @@ class ContactsViewModel(
             nodeProjection,
         ) { identity, contacts, channelSet, settings, projection ->
             val keyedNodes = projection.first
+            val voiceNote = getString(Res.string.voice_note)
             val (myNodeInfo, _) = identity
             val myNodeNum = myNodeInfo?.myNodeNum ?: return@combine emptyList<Contact>()
             // Add empty channel placeholders (always show Broadcast contacts, even when empty)
@@ -155,7 +160,8 @@ class ContactsViewModel(
                     },
                     longName = longName,
                     lastMessageTime = if (packetData.time != 0L) packetData.time else null,
-                    lastMessageText = if (fromLocal) packetData.text else "$shortName: ${packetData.text}",
+                    lastMessageText =
+                    previewOf(packetData, voiceNote)?.let { if (fromLocal) it else "$shortName: $it" },
                     unreadCount = packetRepository.getUnreadCount(contactKey),
                     messageCount = packetRepository.getMessageCount(contactKey),
                     isMuted = settings[contactKey]?.isMuted == true,
@@ -243,3 +249,12 @@ fun Contact.section(): ContactSection =
     } else {
         ContactSection.DIRECT_MESSAGES
     }
+
+/**
+ * The row's one-line summary of [packet]. A voice note carries Codec2 bytes, not text, so it gets a label of its own;
+ * any other packet without text (an empty channel placeholder) has no preview at all, never the word "null".
+ */
+internal fun previewOf(packet: DataPacket, voiceNoteLabel: String): String? = when (packet.dataType) {
+    PortNum.AUDIO_APP.value -> "\uD83C\uDFA4 $voiceNoteLabel"
+    else -> packet.text
+}

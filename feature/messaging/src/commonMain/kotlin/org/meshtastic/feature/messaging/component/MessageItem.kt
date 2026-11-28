@@ -746,7 +746,7 @@ private fun OriginalMessageSnippet(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = originalMessage.text,
+                    text = originalMessage.quotedText(),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
